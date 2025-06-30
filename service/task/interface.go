@@ -9,3 +9,7 @@ type Store interface {
 	Update(*models.Task) error
 	Delete(int64) error
 }
+
+type UserService interface {
+	GetByID(int64) (*models.User, error)
+}

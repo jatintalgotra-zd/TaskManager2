@@ -1,16 +1,15 @@
 package task
 
 import (
-	"TaskManager2/handler/user"
 	"TaskManager2/models"
 )
 
 type service struct {
 	store       Store
-	userService user.Service
+	userService UserService
 }
 
-func New(store Store, userSvc user.Service) *service {
+func New(store Store, userSvc UserService) *service {
 	return &service{store: store, userService: userSvc}
 }
 
