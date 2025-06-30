@@ -3,9 +3,13 @@ package task
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
+
+	"go.uber.org/mock/gomock"
 
 	"TaskManager2/models"
 	"TaskManager2/utils"
@@ -32,347 +36,477 @@ func (e *errWriter) WriteHeader(statusCode int) {
 }
 
 func TestHandler_Post(t *testing.T) {
-	mockSvc := MockService{}
-	taskHandler := New(&mockSvc)
+	controller := gomock.NewController(t)
+	mockSvc := NewMockService(controller)
+	taskHandler := New(mockSvc)
 
-	// testcase 1 - invalid method
-	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	w := httptest.NewRecorder()
-	taskHandler.Post(w, r)
-
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("want %d, got %d", http.StatusMethodNotAllowed, w.Code)
-		return
+	testcases := []struct {
+		description  string
+		method       string
+		reader       io.Reader
+		response     http.ResponseWriter
+		expectedCode int
+		expectedBody string
+		mockCall     bool
+		mockTask     *models.Task
+		mockErr      error
+	}{
+		{
+			"success",
+			http.MethodPost,
+			func() io.Reader {
+				user := models.User{}
+				uBytes, _ := json.Marshal(user)
+				return bytes.NewReader(uBytes)
+			}(),
+			httptest.NewRecorder(),
+			http.StatusCreated,
+			"1",
+			true,
+			&models.Task{},
+			nil,
+		},
+		{
+			"invalid method",
+			http.MethodGet,
+			http.NoBody,
+			httptest.NewRecorder(),
+			http.StatusMethodNotAllowed,
+			"",
+			false,
+			&models.Task{},
+			nil,
+		},
+		{
+			"Read error",
+			http.MethodPost,
+			errReader(0),
+			httptest.NewRecorder(),
+			http.StatusBadRequest,
+			"",
+			false,
+			&models.Task{},
+			nil,
+		},
+		{
+			"unmarshal fail",
+			http.MethodPost,
+			bytes.NewReader([]byte(`invalid json`)),
+			httptest.NewRecorder(),
+			http.StatusBadRequest,
+			"",
+			false,
+			&models.Task{},
+			nil,
+		},
+		{
+			"service error",
+			http.MethodPost,
+			func() io.Reader {
+				user2 := models.User{ID: 999}
+				uBytes2, _ := json.Marshal(user2)
+				return bytes.NewReader(uBytes2)
+			}(),
+			httptest.NewRecorder(),
+			http.StatusBadRequest,
+			"",
+			true,
+			&models.Task{ID: 999},
+			utils.ErrTest,
+		},
+		{
+			"write error",
+			http.MethodPost,
+			bytes.NewReader([]byte(`{"id":1}`)),
+			&errWriter{},
+			http.StatusBadRequest,
+			"",
+			true,
+			&models.Task{ID: 1},
+			nil,
+		},
 	}
 
-	// testcase 2 - success
-	task := models.Task{}
+	for _, tc := range testcases {
+		if tc.mockCall {
+			mockSvc.EXPECT().Create(tc.mockTask).Return(int64(1), tc.mockErr)
+		}
 
-	tBytes, err := json.Marshal(task)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+		r := httptest.NewRequest(tc.method, "/", tc.reader)
 
-	reader := bytes.NewReader(tBytes)
-	r = httptest.NewRequest(http.MethodPost, "/", reader)
-	w = httptest.NewRecorder()
-	taskHandler.Post(w, r)
+		taskHandler.Post(tc.response, r)
 
-	if w.Code != http.StatusCreated {
-		t.Errorf("want %d, got %d", http.StatusCreated, w.Code)
-	}
+		switch w := tc.response.(type) {
+		case *errWriter:
+			if w.Code != tc.expectedCode {
+				t.Errorf("expected: %d, got: %d", tc.expectedCode, w.Code)
+			}
 
-	if w.Body.String() != "1" {
-		t.Errorf("Expected 1, got %s", w.Body.String())
-	}
+		case *httptest.ResponseRecorder:
+			if w.Code != tc.expectedCode {
+				t.Errorf("expected: %d, got: %d", tc.expectedCode, w.Code)
+			}
 
-	// testcase 3 - read error
-	r = httptest.NewRequest(http.MethodPost, "/", errReader(0))
-	w = httptest.NewRecorder()
-	taskHandler.Post(w, r)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("want %d, got %d", http.StatusBadRequest, w.Code)
-		return
-	}
-
-	// testcase 4 - unmarshal fail
-	r = httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(`hello world`)))
-	w = httptest.NewRecorder()
-	taskHandler.Post(w, r)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("want %d, got %d", http.StatusBadRequest, w.Code)
-		return
-	}
-
-	// testcase 5 - service error
-	task = models.Task{ID: 999}
-
-	tBytes, err = json.Marshal(task)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	reader = bytes.NewReader(tBytes)
-	r = httptest.NewRequest(http.MethodPost, "/", reader)
-	w = httptest.NewRecorder()
-	taskHandler.Post(w, r)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("want %d, got %d", http.StatusBadRequest, w.Code)
-		return
-	}
-
-	// testcase 6 - write error
-	r = httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(`{"id":1}`)))
-	wErr := &errWriter{}
-	taskHandler.Post(wErr, r)
-
-	if wErr.Code != http.StatusBadRequest {
-		t.Errorf("want %d, got %d", http.StatusBadRequest, wErr.Code)
+			if w.Body.String() != tc.expectedBody {
+				t.Errorf("expected: %s, got: %s", tc.expectedBody, w.Body.String())
+			}
+		}
 	}
 }
 
 func TestHandler_Get(t *testing.T) {
-	mockSvc := MockService{}
-	taskHandler := New(&mockSvc)
+	controller := gomock.NewController(t)
+	mockSvc := NewMockService(controller)
+	taskHandler := New(mockSvc)
 
-	// testcase 1 - success
-	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	w := httptest.NewRecorder()
-	taskHandler.Get(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("want %d, got %d", http.StatusOK, w.Code)
-		return
+	testcases := []struct {
+		description  string
+		method       string
+		response     http.ResponseWriter
+		expectedCode int
+		expectedBody string
+		mockCall     bool
+		mockInput    int64
+		mockOutput   []models.Task
+		mockErr      error
+	}{
+		{
+			"success",
+			http.MethodGet,
+			httptest.NewRecorder(),
+			http.StatusOK,
+			`[{"id":1,"desc":"","status":false,"user_id":0}]`,
+			true,
+			1,
+			[]models.Task{{ID: 1}},
+			nil,
+		},
+		{
+			"invalid method",
+			http.MethodPost,
+			httptest.NewRecorder(),
+			http.StatusMethodNotAllowed,
+			"",
+			false,
+			0,
+			nil,
+			nil,
+		},
+		{
+			"service error",
+			http.MethodGet,
+			httptest.NewRecorder(),
+			http.StatusInternalServerError,
+			"",
+			true,
+			999,
+			nil,
+			utils.ErrTest,
+		},
+		{
+			"write error",
+			http.MethodGet,
+			&errWriter{},
+			http.StatusInternalServerError,
+			"",
+			true,
+			1,
+			[]models.Task{{ID: 1}},
+			nil,
+		},
 	}
 
-	var tasks []models.Task
+	for _, tc := range testcases {
+		if tc.mockCall {
+			mockSvc.EXPECT().GetAll().Return(tc.mockOutput, tc.mockErr)
+		}
 
-	err := json.Unmarshal(w.Body.Bytes(), &tasks)
-	if err != nil {
-		t.Error("failed to unmarshal response body")
-		return
-	}
+		r := httptest.NewRequest(tc.method, "/", http.NoBody)
 
-	if len(tasks) != 1 {
-		t.Errorf("Expected 1 mock task, got %+v", tasks)
-		return
-	}
+		taskHandler.Get(tc.response, r)
 
-	// testcase 2 - invalid method
-	r = httptest.NewRequest(http.MethodPost, "/", http.NoBody)
-	w = httptest.NewRecorder()
-	taskHandler.Get(w, r)
+		switch w := tc.response.(type) {
+		case *errWriter:
+			if w.Code != tc.expectedCode {
+				t.Errorf("expected: %d, got: %d", tc.expectedCode, w.Code)
+			}
 
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("want %d, got %d", http.StatusMethodNotAllowed, w.Code)
-		return
-	}
+		case *httptest.ResponseRecorder:
+			if w.Code != tc.expectedCode {
+				t.Errorf("expected: %d, got: %d", tc.expectedCode, w.Code)
+			}
 
-	// testcase 3 - service error
-	mockSvc.Check = true
-	r = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	w = httptest.NewRecorder()
-	taskHandler.Get(w, r)
-
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("want %d, got %d", http.StatusInternalServerError, w.Code)
-		return
-	}
-
-	mockSvc.Check = false
-
-	// testcase 4 - write error
-	r = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	wErr := &errWriter{}
-	taskHandler.Get(wErr, r)
-
-	if wErr.Code != http.StatusInternalServerError {
-		t.Errorf("want %d, got %d", http.StatusInternalServerError, wErr.Code)
+			if w.Body.String() != tc.expectedBody {
+				t.Errorf("expected: %s, got: %s", tc.expectedBody, w.Body.String())
+			}
+		}
 	}
 }
 
 func TestHandler_GetByID(t *testing.T) {
-	mockSvc := MockService{}
-	taskHandler := New(&mockSvc)
+	controller := gomock.NewController(t)
+	mockSvc := NewMockService(controller)
+	taskHandler := New(mockSvc)
 
-	// testcase 1 - success
-	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	r.SetPathValue("id", "1")
-
-	w := httptest.NewRecorder()
-	taskHandler.GetByID(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("want %d, got %d", http.StatusOK, w.Code)
-		return
+	testcases := []struct {
+		description  string
+		method       string
+		id           string
+		response     http.ResponseWriter
+		expectedCode int
+		expectedBody string
+		mockCall     bool
+		mockInput    int64
+		mockOutput   *models.Task
+		mockErr      error
+	}{
+		{
+			"success",
+			http.MethodGet,
+			"1",
+			httptest.NewRecorder(),
+			http.StatusOK,
+			`{"id":1,"desc":"","status":false,"user_id":0}`,
+			true,
+			1,
+			&models.Task{ID: 1},
+			nil,
+		},
+		{
+			"invalid method",
+			http.MethodPost,
+			"1",
+			httptest.NewRecorder(),
+			http.StatusMethodNotAllowed,
+			"",
+			false,
+			0,
+			nil,
+			nil,
+		},
+		{
+			"bad id (non-integer)",
+			http.MethodGet,
+			"abc",
+			httptest.NewRecorder(),
+			http.StatusBadRequest,
+			"",
+			false,
+			0,
+			nil,
+			nil,
+		},
+		{
+			"not found",
+			http.MethodGet,
+			"999",
+			httptest.NewRecorder(),
+			http.StatusNotFound,
+			"null",
+			true,
+			999,
+			nil,
+			utils.ErrTest,
+		},
+		{
+			"write error",
+			http.MethodGet,
+			"1",
+			&errWriter{},
+			http.StatusInternalServerError,
+			"",
+			true,
+			1,
+			&models.Task{ID: 1},
+			nil,
+		},
 	}
 
-	var task models.Task
+	for _, tc := range testcases {
+		if tc.mockCall {
+			mockSvc.EXPECT().GetByID(tc.mockInput).Return(tc.mockOutput, tc.mockErr)
+		}
 
-	err := json.Unmarshal(w.Body.Bytes(), &task)
-	if err != nil {
-		t.Error("failed to unmarshal response body")
-		return
-	}
+		r := httptest.NewRequest(tc.method, "/", http.NoBody)
+		r.SetPathValue("id", tc.id)
 
-	if task.ID != 1 {
-		t.Errorf("unexpected task: %+v", task)
-		return
-	}
+		taskHandler.GetByID(tc.response, r)
 
-	// testcase 2 - invalid method
-	r = httptest.NewRequest(http.MethodPost, "/", http.NoBody)
-	r.SetPathValue("id", "1")
+		switch w := tc.response.(type) {
+		case *errWriter:
+			if w.Code != tc.expectedCode {
+				t.Errorf("expected: %d, got: %d", tc.expectedCode, w.Code)
+			}
 
-	w = httptest.NewRecorder()
-	taskHandler.GetByID(w, r)
+		case *httptest.ResponseRecorder:
+			if w.Code != tc.expectedCode {
+				t.Errorf("expected: %d, got: %d", tc.expectedCode, w.Code)
+			}
 
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("want %d, got %d", http.StatusMethodNotAllowed, w.Code)
-		return
-	}
-
-	// testcase 3 - bad id (non-int)
-	r = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	r.SetPathValue("id", "abc")
-
-	w = httptest.NewRecorder()
-	taskHandler.GetByID(w, r)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("want %d, got %d", http.StatusBadRequest, w.Code)
-		return
-	}
-
-	// testcase 4 - not found
-	r = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	r.SetPathValue("id", "999")
-
-	w = httptest.NewRecorder()
-	taskHandler.GetByID(w, r)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("want %d, got %d", http.StatusNotFound, w.Code)
-		return
-	}
-
-	// testcase 5 - write error
-	r = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	r.SetPathValue("id", "1")
-
-	wErr := &errWriter{}
-	taskHandler.GetByID(wErr, r)
-
-	if wErr.Code != http.StatusInternalServerError {
-		t.Errorf("want %d, got %d", http.StatusInternalServerError, wErr.Code)
+			if w.Body.String() != tc.expectedBody {
+				t.Errorf("expected: %s, got: %s", tc.expectedBody, w.Body.String())
+			}
+		}
 	}
 }
 
 func TestHandler_Put(t *testing.T) {
-	mockSvc := MockService{}
-	taskHandler := New(&mockSvc)
+	controller := gomock.NewController(t)
+	mockSvc := NewMockService(controller)
+	taskHandler := New(mockSvc)
 
-	// testcase 1 - invalid method
-	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	w := httptest.NewRecorder()
-	taskHandler.Put(w, r)
-
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("want %d, got %d", http.StatusMethodNotAllowed, w.Code)
-		return
+	testcases := []struct {
+		description  string
+		method       string
+		reader       io.Reader
+		response     *httptest.ResponseRecorder
+		expectedCode int
+		mockCall     bool
+		mockTask     *models.Task
+		mockErr      error
+	}{
+		{
+			"success",
+			http.MethodPut,
+			func() io.Reader {
+				user := models.User{}
+				uBytes, _ := json.Marshal(user)
+				return bytes.NewReader(uBytes)
+			}(),
+			httptest.NewRecorder(),
+			http.StatusNoContent,
+			true,
+			&models.Task{},
+			nil,
+		},
+		{
+			"invalid method",
+			http.MethodGet,
+			http.NoBody,
+			httptest.NewRecorder(),
+			http.StatusMethodNotAllowed,
+			false,
+			&models.Task{},
+			nil,
+		},
+		{
+			"Read error",
+			http.MethodPut,
+			errReader(0),
+			httptest.NewRecorder(),
+			http.StatusBadRequest,
+			false,
+			&models.Task{},
+			nil,
+		},
+		{
+			"unmarshal fail",
+			http.MethodPut,
+			bytes.NewReader([]byte(`invalid json`)),
+			httptest.NewRecorder(),
+			http.StatusBadRequest,
+			false,
+			&models.Task{},
+			nil,
+		},
+		{
+			"service error",
+			http.MethodPut,
+			func() io.Reader {
+				user2 := models.User{ID: 999}
+				uBytes2, _ := json.Marshal(user2)
+				return bytes.NewReader(uBytes2)
+			}(),
+			httptest.NewRecorder(),
+			http.StatusInternalServerError,
+			true,
+			&models.Task{ID: 999},
+			utils.ErrTest,
+		},
 	}
 
-	// testcase 2 - read error
-	r = httptest.NewRequest(http.MethodPut, "/", errReader(0))
-	w = httptest.NewRecorder()
-	taskHandler.Put(w, r)
+	for _, tc := range testcases {
+		if tc.mockCall {
+			mockSvc.EXPECT().Update(tc.mockTask).Return(tc.mockErr)
+		}
 
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("want %d, got %d", http.StatusBadRequest, w.Code)
-		return
-	}
+		r := httptest.NewRequest(tc.method, "/", tc.reader)
 
-	// testcase 3 - unmarshal fail
-	r = httptest.NewRequest(http.MethodPut, "/", bytes.NewReader([]byte(`not a json`)))
-	w = httptest.NewRecorder()
-	taskHandler.Put(w, r)
+		taskHandler.Put(tc.response, r)
 
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("want %d, got %d", http.StatusBadRequest, w.Code)
-		return
-	}
-
-	// testcase 4 - service error
-	task := models.Task{ID: 999}
-
-	tBytes, err := json.Marshal(task)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	reader := bytes.NewReader(tBytes)
-	r = httptest.NewRequest(http.MethodPut, "/", reader)
-	w = httptest.NewRecorder()
-	taskHandler.Put(w, r)
-
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("want %d, got %d", http.StatusInternalServerError, w.Code)
-		return
-	}
-
-	// testcase 5 - success
-	task = models.Task{ID: 1}
-
-	tBytes, err = json.Marshal(task)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	reader = bytes.NewReader(tBytes)
-	r = httptest.NewRequest(http.MethodPut, "/", reader)
-	w = httptest.NewRecorder()
-	taskHandler.Put(w, r)
-
-	if w.Code != http.StatusNoContent {
-		t.Errorf("want %d, got %d", http.StatusNoContent, w.Code)
+		w := tc.response
+		if w.Code != tc.expectedCode {
+			t.Errorf("expected: %d, got: %d", tc.expectedCode, w.Code)
+		}
 	}
 }
 
 func TestHandler_DeleteByID(t *testing.T) {
-	mockSvc := MockService{}
-	taskHandler := New(&mockSvc)
+	controller := gomock.NewController(t)
+	mockSvc := NewMockService(controller)
+	taskHandler := New(mockSvc)
 
-	// testcase 1 - invalid method
-	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	r.SetPathValue("id", "1")
-
-	w := httptest.NewRecorder()
-	taskHandler.DeleteByID(w, r)
-
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("want %d, got %d", http.StatusMethodNotAllowed, w.Code)
-		return
+	testcases := []struct {
+		description  string
+		method       string
+		id           string
+		response     *httptest.ResponseRecorder
+		expectedCode int
+		mockCall     bool
+		mockErr      error
+	}{
+		{
+			"success",
+			http.MethodDelete,
+			"1",
+			httptest.NewRecorder(),
+			http.StatusNoContent,
+			true,
+			nil,
+		},
+		{
+			"invalid method",
+			http.MethodGet,
+			"1",
+			httptest.NewRecorder(),
+			http.StatusMethodNotAllowed,
+			false,
+			nil,
+		},
+		{
+			"invalid id (non-integer)",
+			http.MethodDelete,
+			"abc",
+			httptest.NewRecorder(),
+			http.StatusBadRequest,
+			false,
+			nil,
+		},
+		{
+			"service error",
+			http.MethodDelete,
+			"999",
+			httptest.NewRecorder(),
+			http.StatusInternalServerError,
+			true,
+			utils.ErrTest,
+		},
 	}
 
-	// testcase 2 - bad id (non-integer)
-	r = httptest.NewRequest(http.MethodDelete, "/", http.NoBody)
-	r.SetPathValue("id", "abc")
+	for _, tc := range testcases {
+		if tc.mockCall {
+			idInt, _ := strconv.Atoi(tc.id)
+			mockSvc.EXPECT().Delete(int64(idInt)).Return(tc.mockErr)
+		}
 
-	w = httptest.NewRecorder()
-	taskHandler.DeleteByID(w, r)
+		r := httptest.NewRequest(tc.method, "/", http.NoBody)
+		r.SetPathValue("id", tc.id)
 
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("want %d, got %d", http.StatusBadRequest, w.Code)
-		return
-	}
+		taskHandler.DeleteByID(tc.response, r)
 
-	// testcase 3 - service error
-	r = httptest.NewRequest(http.MethodDelete, "/", http.NoBody)
-	r.SetPathValue("id", "999")
-
-	w = httptest.NewRecorder()
-	taskHandler.DeleteByID(w, r)
-
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("want %d, got %d", http.StatusInternalServerError, w.Code)
-		return
-	}
-
-	// testcase 4 - success
-	r = httptest.NewRequest(http.MethodDelete, "/", http.NoBody)
-	r.SetPathValue("id", "1")
-
-	w = httptest.NewRecorder()
-	taskHandler.DeleteByID(w, r)
-
-	if w.Code != http.StatusNoContent {
-		t.Errorf("want %d, got %d", http.StatusNoContent, w.Code)
+		w := tc.response
+		if w.Code != tc.expectedCode {
+			t.Errorf("expected: %d, got: %d", tc.expectedCode, w.Code)
+		}
 	}
 }

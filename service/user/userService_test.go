@@ -1,68 +1,71 @@
 package user
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
+	"go.uber.org/mock/gomock"
+
 	"TaskManager2/models"
+	"TaskManager2/utils"
 )
 
 func TestCreate(t *testing.T) {
-	mockStore := MockStore{}
-	userService := New(&mockStore)
+	controller := gomock.NewController(t)
+	mockStore := NewMockStore(controller)
+	userService := New(mockStore)
 
-	// case 1 - pass
-	user := &models.User{}
-
-	id, err := userService.Create(user)
-	if err != nil {
-		t.Errorf("Error creating user: %v", err)
-		return
+	testCases := []struct {
+		description   string
+		input         models.User
+		expectedID    int64
+		expectedError error
+	}{
+		{"success", models.User{ID: 1, Name: "test1"}, 1, nil},
+		{"store create method error", models.User{ID: 1, Name: "test1"}, 0, utils.ErrTest},
 	}
 
-	if id != 1 {
-		t.Errorf("Expected id 1, got %v", id)
-		return
-	}
+	for _, tc := range testCases {
+		mockStore.EXPECT().Create(&tc.input).Return(tc.expectedID, tc.expectedError)
 
-	// case 2 - fail
-	user2 := &models.User{Name: "test", Email: "test@user.com"}
+		id, err := userService.Create(&tc.input)
+		if !errors.Is(err, tc.expectedError) {
+			t.Errorf("Expected error %v, got %v", tc.expectedError, err)
+		}
 
-	_, err2 := userService.Create(user2)
-	if err2 == nil {
-		t.Errorf("Test should have failed but did not")
-		return
+		if id != tc.expectedID {
+			t.Errorf("Create(%+v) expected id = %d, actual = %d", tc.input, tc.expectedID, id)
+		}
 	}
 }
 
 func TestService_GetByID(t *testing.T) {
-	mockStore := MockStore{}
-	userService := New(&mockStore)
+	controller := gomock.NewController(t)
+	mockStore := NewMockStore(controller)
+	userService := New(mockStore)
 
-	// case 1 - pass
-	user, err := userService.GetByID(1)
-	if err != nil {
-		t.Error(err.Error())
-		return
+	testCases := []struct {
+		description   string
+		input         int64
+		expected      *models.User
+		expectedError error
+	}{
+		{"success", 1, &models.User{ID: 1, Name: "test1"}, nil},
+		{"store get method error", 10, &models.User{ID: 1, Name: "test2"}, utils.ErrTest},
 	}
 
-	if user == nil {
-		t.Error("user is nil")
-		return
-	}
+	for _, tc := range testCases {
+		mockStore.EXPECT().GetByID(tc.input).Return(tc.expected, tc.expectedError)
 
-	if user.ID != 1 {
-		t.Errorf("Expected: 1, Got: %d", user.ID)
-		return
-	}
+		user, err := userService.GetByID(tc.input)
+		if !errors.Is(err, tc.expectedError) {
+			fmt.Println("check")
+			t.Errorf("Expected error %v, got %v", tc.expectedError, err)
+		}
 
-	if user.Name != "test" {
-		t.Errorf("Expected: %s, Got: %s", "test", user.Name)
-		return
-	}
-
-	// case 2 - fail
-	_, err2 := userService.GetByID(10)
-	if err2 == nil {
-		t.Errorf("Test should have failed but did not")
+		if user != nil && user.ID != tc.expected.ID {
+			t.Errorf("Expected: %v, got %v", tc.expected.Name, user.Name)
+		}
 	}
 }
