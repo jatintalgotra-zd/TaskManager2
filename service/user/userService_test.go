@@ -24,12 +24,8 @@ func TestCreate(t *testing.T) {
 		return
 	}
 
-
 	// case 2 - fail
-	user2 := &models.User{
-		Name: "test",
-		Email: "test@user.com",
-	}
+	user2 := &models.User{Name: "test", Email: "test@user.com"}
 
 	_, err2 := userService.Create(user2)
 	if err2 == nil {

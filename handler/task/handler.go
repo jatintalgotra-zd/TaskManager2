@@ -2,7 +2,6 @@ package task
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -95,10 +94,7 @@ func (h *handler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	task, err2 := h.service.GetByID(int64(idInt))
 	if err2 != nil {
-		fmt.Println("check")
 		w.WriteHeader(http.StatusNotFound)
-
-		return
 	}
 
 	tBytes, err3 := json.Marshal(task)

@@ -6,25 +6,27 @@ import (
 	"TaskManager2/models"
 )
 
-type MockStore struct {}
+var errTest = errors.New("test error")
+
+type MockStore struct {
+	Check int64
+}
 
 func (MockStore) Create(u *models.User) (int64, error) {
-	if u.Name == "test"{
-		return 0, errors.New("User already exists")
+	testStr := "test"
+	if u.Name == testStr {
+		return 0, errTest
 	}
 
 	return 1, nil
 }
 
-func (MockStore) GetByID(ID int64) (*models.User, error) {
-	user := &models.User{
-		ID: ID,
-		Name: "test",
-		Email: "test@user.com",
-	}
+func (MockStore) GetByID(id int64) (*models.User, error) {
+	user := &models.User{ID: id, Name: "test", Email: "test@user.com"}
 
-	if ID == 10 {
-		return nil, errors.New("User not found")
+	var expID int64 = 10
+	if id == expID {
+		return nil, errTest
 	}
 
 	return user, nil
