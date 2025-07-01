@@ -4,13 +4,18 @@ info:
   version: 1.0.0
   description: API for managing tasks and users
 
-servers:
-  - url: http://localhost:8080
+tags:
+  - name: Task
+    description: Endpoints for task creation, management, and deletion
+  - name: User
+    description: Endpoints for user registration and retrieval
 
 paths:
   /task:
     post:
+      tags: [Task]
       summary: Create a new task
+      description: Creates a task only if the user exists
       requestBody:
         required: true
         content:
@@ -26,12 +31,16 @@ paths:
                 type: string
                 example: "1"
         '400':
-          description: Invalid input
+          description: Invalid input or user does not exist
+        '500':
+          description: Database error
+
     get:
+      tags: [Task]
       summary: Get all tasks
       responses:
         '200':
-          description: List of all tasks
+          description: List of tasks
           content:
             application/json:
               schema:
@@ -39,25 +48,11 @@ paths:
                 items:
                   $ref: '#/components/schemas/Task'
         '500':
-          description: Internal server error
-    put:
-      summary: Update an existing task
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Task'
-      responses:
-        '204':
-          description: Task updated successfully
-        '400':
-          description: Invalid input
-        '500':
-          description: Internal server error
+          description: Database query failed
 
   /task/{id}:
     get:
+      tags: [Task]
       summary: Get a task by ID
       parameters:
         - name: id
@@ -67,16 +62,39 @@ paths:
             type: integer
       responses:
         '200':
-          description: A single task
+          description: Task found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Task'
         '400':
-          description: Invalid ID
+          description: Invalid ID format
         '404':
           description: Task not found
+        '500':
+          description: Database error
+
+    put:
+      tags: [Task]
+      summary: Update an existing task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Task'
+      responses:
+        '204':
+          description: Task updated
+        '400':
+          description: Bad request (missing fields or ID)
+        '404':
+          description: Task not found
+        '500':
+          description: Database error
+
     delete:
+      tags: [Task]
       summary: Delete a task by ID
       parameters:
         - name: id
@@ -88,12 +106,15 @@ paths:
         '204':
           description: Task deleted
         '400':
-          description: Invalid ID
+          description: Invalid ID format
+        '404':
+          description: Task not found
         '500':
-          description: Internal server error
+          description: Deletion failed
 
   /user:
     post:
+      tags: [User]
       summary: Create a new user
       requestBody:
         required: true
@@ -103,7 +124,7 @@ paths:
               $ref: '#/components/schemas/User'
       responses:
         '201':
-          description: User created successfully
+          description: User created
           content:
             text/plain:
               schema:
@@ -111,9 +132,12 @@ paths:
                 example: "1"
         '400':
           description: Invalid input
+        '500':
+          description: Database error
 
   /user/{id}:
     get:
+      tags: [User]
       summary: Get a user by ID
       parameters:
         - name: id
@@ -123,42 +147,50 @@ paths:
             type: integer
       responses:
         '200':
-          description: A single user
+          description: User found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
         '400':
-          description: Invalid ID
+          description: Invalid ID format
         '404':
           description: User not found
+        '500':
+          description: Database error
 
 components:
   schemas:
     Task:
       type: object
+      required: [desc, status, user_id]
       properties:
         id:
           type: integer
           format: int64
+          example: 1
         desc:
           type: string
-          example: "Finish writing Swagger docs"
+          example: "Finish the report"
         status:
           type: boolean
           example: false
         user_id:
           type: integer
           format: int64
+          example: 2
+
     User:
       type: object
+      required: [name, email]
       properties:
         id:
           type: integer
           format: int64
+          example: 3
         name:
           type: string
-          example: "John Doe"
+          example: "Alice"
         email:
           type: string
-          example: "john.doe@example.com"
+          example: "alice@example.com"

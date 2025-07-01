@@ -1,10 +1,9 @@
 package user
 
 import (
-	"encoding/json"
-	"io"
-	"net/http"
 	"strconv"
+
+	"gofr.dev/pkg/gofr"
 
 	"TaskManager2/models"
 )
@@ -17,71 +16,32 @@ func New(service Service) *handler {
 	return &handler{service: service}
 }
 
-// Post - Create method.
-func (h *handler) Post(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
+func (h *handler) PostHandler(ctx *gofr.Context) (any, error) {
+	var task models.User
 
-	var user models.User
-
-	uBytes, err := io.ReadAll(r.Body)
+	err := ctx.Bind(&task)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, err
 	}
 
-	err = json.Unmarshal(uBytes, &user)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	id, err2 := h.service.Create(&user)
+	id, err2 := h.service.Create(&task)
 	if err2 != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, err2
 	}
 
-	w.WriteHeader(http.StatusCreated)
-
-	_, err3 := w.Write([]byte(strconv.Itoa(int(id))))
-	if err3 != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	return id, nil
 }
 
-// GetByID - get by id method.
-func (h *handler) GetByID(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	id := r.PathValue("id")
-
-	idInt, err := strconv.Atoi(id)
+func (h *handler) GetByIDHandler(ctx *gofr.Context) (any, error) {
+	id, err := strconv.Atoi(ctx.PathParam("id"))
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, err
 	}
 
-	user, err2 := h.service.GetByID(int64(idInt))
+	user, err2 := h.service.GetByID(int64(id))
 	if err2 != nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
+		return nil, err2
 	}
 
-	uBytes, err3 := json.Marshal(user)
-	if err3 != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	_, err4 := w.Write(uBytes)
-	if err4 != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	return user, nil
 }

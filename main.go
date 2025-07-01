@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"net/http"
-	"time"
+
+	"gofr.dev/pkg/gofr"
 
 	"TaskManager2/datasource/mysql"
 	taskHandler "TaskManager2/handler/task"
@@ -32,23 +32,16 @@ func main() {
 	taskHndlr := taskHandler.New(taskSvc)
 	userHndlr := userHandler.New(userSvc)
 
-	http.HandleFunc("POST /task", taskHndlr.Post)
-	http.HandleFunc("GET /task", taskHndlr.Get)
-	http.HandleFunc("GET /task/{id}", taskHndlr.GetByID)
-	http.HandleFunc("PUT /task", taskHndlr.Put)
-	http.HandleFunc("DELETE /task/{id}", taskHndlr.DeleteByID)
+	app := gofr.New()
 
-	http.HandleFunc("POST /user", userHndlr.Post)
-	http.HandleFunc("GET /user/{id}", userHndlr.GetByID)
+	app.GET("/task", taskHndlr.GetAllHandler)
+	app.GET("/task/{id}", taskHndlr.GetByIDHandler)
+	app.POST("/task", taskHndlr.PostHandler)
+	app.PUT("/task/{id}", taskHndlr.PutHandler)
+	app.DELETE("/task/{id}", taskHndlr.DeleteHandler)
 
-	server := http.Server{
-		Addr:        ":8080",
-		Handler:     http.DefaultServeMux,
-		ReadTimeout: 5 * time.Second,
-	}
+	app.GET("/user/{id}", userHndlr.GetByIDHandler)
+	app.POST("/user", userHndlr.PostHandler)
 
-	err2 := server.ListenAndServe()
-	if err2 != nil {
-		fmt.Println(err)
-	}
+	app.Run()
 }

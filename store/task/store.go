@@ -51,7 +51,7 @@ func (s *store) GetAll() ([]models.Task, error) {
 	}
 
 	if rows.Err() != nil {
-		return nil, err
+		return nil, rows.Err()
 	}
 
 	return tasks, nil
