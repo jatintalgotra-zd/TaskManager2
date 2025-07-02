@@ -1,21 +1,22 @@
 package user
 
 import (
-	"database/sql"
+	"gofr.dev/pkg/gofr"
 
 	"TaskManager2/models"
 )
 
 type store struct {
-	db *sql.DB
 }
 
-func New(db *sql.DB) *store {
-	return &store{db: db}
+func New() *store {
+	return &store{}
 }
 
-func (s *store) Create(u *models.User) (int64, error) {
-	res, err := s.db.Exec("INSERT INTO users (name, email) VALUES ( ?, ?)", u.Name, u.Email)
+func (store) Create(ctx *gofr.Context, u *models.User) (int64, error) {
+	db := ctx.SQL
+
+	res, err := db.Exec("INSERT INTO users (name, email) VALUES ( ?, ?)", u.Name, u.Email)
 	if err != nil {
 		return 0, err
 	}
@@ -28,8 +29,9 @@ func (s *store) Create(u *models.User) (int64, error) {
 	return id, nil
 }
 
-func (s *store) GetByID(id int64) (*models.User, error) {
-	row := s.db.QueryRow("SELECT id, name, email FROM users WHERE id = ?", id)
+func (store) GetByID(ctx *gofr.Context, id int64) (*models.User, error) {
+	db := ctx.SQL
+	row := db.QueryRow("SELECT id, name, email FROM users WHERE id = ?", id)
 
 	var u models.User
 

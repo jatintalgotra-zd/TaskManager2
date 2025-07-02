@@ -1,11 +1,15 @@
 package task
 
-import "TaskManager2/models"
+import (
+	"gofr.dev/pkg/gofr"
+
+	"TaskManager2/models"
+)
 
 type Service interface {
-	Create(*models.Task) (int64, error)
-	GetAll() ([]models.Task, error)
-	GetByID(int64) (*models.Task, error)
-	Update(*models.Task) error
-	Delete(int64) error
+	Create(*gofr.Context, *models.Task) (int64, error)
+	GetAll(*gofr.Context) ([]models.Task, error)
+	GetByID(*gofr.Context, int64) (*models.Task, error)
+	Update(*gofr.Context, *models.Task) error
+	Delete(*gofr.Context, int64) error
 }

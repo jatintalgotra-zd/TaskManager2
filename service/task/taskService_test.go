@@ -5,12 +5,15 @@ import (
 	"testing"
 
 	"go.uber.org/mock/gomock"
+	"gofr.dev/pkg/gofr"
 
 	"TaskManager2/models"
 	"TaskManager2/utils"
 )
 
 func TestService_Create(t *testing.T) {
+	var ctx *gofr.Context
+
 	controller := gomock.NewController(t)
 	mockStore := NewMockStore(controller)
 	mockUserSvc := NewMockUserService(controller)
@@ -29,15 +32,15 @@ func TestService_Create(t *testing.T) {
 
 	for _, tc := range tests {
 		if tc.input.UserID != 10 {
-			mockStore.EXPECT().Create(tc.input).Return(tc.expectedID, tc.expectedErr)
-			mockUserSvc.EXPECT().GetByID(tc.input.UserID).Return(&models.User{}, nil)
+			mockStore.EXPECT().Create(ctx, tc.input).Return(tc.expectedID, tc.expectedErr)
+			mockUserSvc.EXPECT().GetByID(ctx, tc.input.UserID).Return(&models.User{}, nil)
 		}
 
 		if tc.input.UserID == 10 {
-			mockUserSvc.EXPECT().GetByID(tc.input.UserID).Return(nil, tc.expectedErr)
+			mockUserSvc.EXPECT().GetByID(ctx, tc.input.UserID).Return(nil, tc.expectedErr)
 		}
 
-		id, err := taskService.Create(tc.input)
+		id, err := taskService.Create(ctx, tc.input)
 		if !errors.Is(err, tc.expectedErr) {
 			t.Errorf("expected error %s, got %s", tc.expectedErr, err)
 		}
@@ -49,6 +52,8 @@ func TestService_Create(t *testing.T) {
 }
 
 func TestService_GetAll(t *testing.T) {
+	var ctx *gofr.Context
+
 	controller := gomock.NewController(t)
 	mockStore := NewMockStore(controller)
 	mockUserSvc := NewMockUserService(controller)
@@ -64,9 +69,9 @@ func TestService_GetAll(t *testing.T) {
 	}
 
 	for _, test := range testcases {
-		mockStore.EXPECT().GetAll().Return(test.expected, test.expectedError)
+		mockStore.EXPECT().GetAll(ctx).Return(test.expected, test.expectedError)
 
-		_, err := taskService.GetAll()
+		_, err := taskService.GetAll(ctx)
 		if !errors.Is(err, test.expectedError) {
 			t.Errorf("Test Failed: (%s) Expected: (%s) Actual: (%s)", test.description, test.expectedError, err)
 		}
@@ -74,6 +79,8 @@ func TestService_GetAll(t *testing.T) {
 }
 
 func TestService_GetByID(t *testing.T) {
+	var ctx *gofr.Context
+
 	controller := gomock.NewController(t)
 	mockStore := NewMockStore(controller)
 	mockUserSvc := NewMockUserService(controller)
@@ -90,9 +97,9 @@ func TestService_GetByID(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		mockStore.EXPECT().GetByID(tc.input).Return(tc.expected, tc.expectedError)
+		mockStore.EXPECT().GetByID(ctx, tc.input).Return(tc.expected, tc.expectedError)
 
-		_, err := taskService.GetByID(tc.input)
+		_, err := taskService.GetByID(ctx, tc.input)
 		if !errors.Is(err, tc.expectedError) {
 			t.Errorf("Expected error: %s, got %s", tc.expectedError, err)
 		}
@@ -100,6 +107,8 @@ func TestService_GetByID(t *testing.T) {
 }
 
 func TestService_Update(t *testing.T) {
+	var ctx *gofr.Context
+
 	controller := gomock.NewController(t)
 	mockStore := NewMockStore(controller)
 	mockUserSvc := NewMockUserService(controller)
@@ -115,9 +124,9 @@ func TestService_Update(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		mockStore.EXPECT().Update(tc.input).Return(tc.expectedError)
+		mockStore.EXPECT().Update(ctx, tc.input).Return(tc.expectedError)
 
-		err := taskService.Update(tc.input)
+		err := taskService.Update(ctx, tc.input)
 		if !errors.Is(err, tc.expectedError) {
 			t.Errorf("Expected error: %s, got %s", tc.expectedError, err)
 		}
@@ -125,6 +134,8 @@ func TestService_Update(t *testing.T) {
 }
 
 func TestService_Delete(t *testing.T) {
+	var ctx *gofr.Context
+
 	controller := gomock.NewController(t)
 	mockStore := NewMockStore(controller)
 	mockUserSvc := NewMockUserService(controller)
@@ -140,9 +151,9 @@ func TestService_Delete(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		mockStore.EXPECT().Delete(tc.input).Return(tc.expectedError)
+		mockStore.EXPECT().Delete(ctx, tc.input).Return(tc.expectedError)
 
-		err := taskService.Delete(tc.input)
+		err := taskService.Delete(ctx, tc.input)
 		if !errors.Is(err, tc.expectedError) {
 			t.Errorf("Expected error: %s, got %s", tc.expectedError, err)
 		}

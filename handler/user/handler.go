@@ -4,6 +4,8 @@ import (
 	"strconv"
 
 	"gofr.dev/pkg/gofr"
+	gofrhttp "gofr.dev/pkg/gofr/http"
+	"gofr.dev/pkg/gofr/http/response"
 
 	"TaskManager2/models"
 )
@@ -21,10 +23,10 @@ func (h *handler) PostHandler(ctx *gofr.Context) (any, error) {
 
 	err := ctx.Bind(&task)
 	if err != nil {
-		return nil, err
+		return nil, gofrhttp.ErrorInvalidParam{}
 	}
 
-	id, err2 := h.service.Create(&task)
+	id, err2 := h.service.Create(ctx, &task)
 	if err2 != nil {
 		return nil, err2
 	}
@@ -35,13 +37,13 @@ func (h *handler) PostHandler(ctx *gofr.Context) (any, error) {
 func (h *handler) GetByIDHandler(ctx *gofr.Context) (any, error) {
 	id, err := strconv.Atoi(ctx.PathParam("id"))
 	if err != nil {
-		return nil, err
+		return nil, gofrhttp.ErrorInvalidParam{Params: []string{ctx.PathParam("id")}}
 	}
 
-	user, err2 := h.service.GetByID(int64(id))
+	user, err2 := h.service.GetByID(ctx, int64(id))
 	if err2 != nil {
 		return nil, err2
 	}
 
-	return user, nil
+	return response.Raw{Data: user}, nil
 }

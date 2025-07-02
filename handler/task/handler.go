@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"gofr.dev/pkg/gofr"
+	gofrhttp "gofr.dev/pkg/gofr/http"
 
 	"TaskManager2/models"
 )
@@ -21,10 +22,10 @@ func (h *handler) PostHandler(ctx *gofr.Context) (any, error) {
 
 	err := ctx.Bind(&task)
 	if err != nil {
-		return nil, err
+		return nil, gofrhttp.ErrorInvalidParam{}
 	}
 
-	id, err2 := h.service.Create(&task)
+	id, err2 := h.service.Create(ctx, &task)
 	if err2 != nil {
 		return nil, err2
 	}
@@ -33,7 +34,7 @@ func (h *handler) PostHandler(ctx *gofr.Context) (any, error) {
 }
 
 func (h *handler) GetAllHandler(ctx *gofr.Context) (any, error) {
-	tasks, err := h.service.GetAll()
+	tasks, err := h.service.GetAll(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -44,10 +45,10 @@ func (h *handler) GetAllHandler(ctx *gofr.Context) (any, error) {
 func (h *handler) GetByIDHandler(ctx *gofr.Context) (any, error) {
 	id, err := strconv.Atoi(ctx.PathParam("id"))
 	if err != nil {
-		return nil, err
+		return nil, gofrhttp.ErrorInvalidParam{Params: []string{ctx.PathParam("id")}}
 	}
 
-	task, err2 := h.service.GetByID(int64(id))
+	task, err2 := h.service.GetByID(ctx, int64(id))
 	if err2 != nil {
 		return nil, err2
 	}
@@ -60,10 +61,10 @@ func (h *handler) PutHandler(ctx *gofr.Context) (any, error) {
 
 	err := ctx.Bind(&task)
 	if err != nil {
-		return nil, err
+		return nil, gofrhttp.ErrorInvalidParam{}
 	}
 
-	err = h.service.Update(&task)
+	err = h.service.Update(ctx, &task)
 	if err != nil {
 		return nil, err
 	}
@@ -75,10 +76,10 @@ func (h *handler) PutHandler(ctx *gofr.Context) (any, error) {
 func (h *handler) DeleteHandler(ctx *gofr.Context) (any, error) {
 	id, err := strconv.Atoi(ctx.PathParam("id"))
 	if err != nil {
-		return nil, err
+		return nil, gofrhttp.ErrorInvalidParam{Params: []string{ctx.PathParam("id")}}
 	}
 
-	err = h.service.Delete(int64(id))
+	err = h.service.Delete(ctx, int64(id))
 	if err != nil {
 		return nil, err
 	}

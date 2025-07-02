@@ -6,12 +6,15 @@ import (
 	"testing"
 
 	"go.uber.org/mock/gomock"
+	"gofr.dev/pkg/gofr"
 
 	"TaskManager2/models"
 	"TaskManager2/utils"
 )
 
 func TestCreate(t *testing.T) {
+	var ctx *gofr.Context
+
 	controller := gomock.NewController(t)
 	mockStore := NewMockStore(controller)
 	userService := New(mockStore)
@@ -27,9 +30,9 @@ func TestCreate(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		mockStore.EXPECT().Create(&tc.input).Return(tc.expectedID, tc.expectedError)
+		mockStore.EXPECT().Create(ctx, &tc.input).Return(tc.expectedID, tc.expectedError)
 
-		id, err := userService.Create(&tc.input)
+		id, err := userService.Create(ctx, &tc.input)
 		if !errors.Is(err, tc.expectedError) {
 			t.Errorf("Expected error %v, got %v", tc.expectedError, err)
 		}
@@ -41,6 +44,8 @@ func TestCreate(t *testing.T) {
 }
 
 func TestService_GetByID(t *testing.T) {
+	var ctx *gofr.Context
+
 	controller := gomock.NewController(t)
 	mockStore := NewMockStore(controller)
 	userService := New(mockStore)
@@ -56,9 +61,9 @@ func TestService_GetByID(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		mockStore.EXPECT().GetByID(tc.input).Return(tc.expected, tc.expectedError)
+		mockStore.EXPECT().GetByID(ctx, tc.input).Return(tc.expected, tc.expectedError)
 
-		user, err := userService.GetByID(tc.input)
+		user, err := userService.GetByID(ctx, tc.input)
 		if !errors.Is(err, tc.expectedError) {
 			fmt.Println("check")
 			t.Errorf("Expected error %v, got %v", tc.expectedError, err)

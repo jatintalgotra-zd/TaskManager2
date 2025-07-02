@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"gofr.dev/pkg/gofr"
+	"gofr.dev/pkg/gofr/container"
 
 	"TaskManager2/models"
 	"TaskManager2/utils"
@@ -11,60 +13,59 @@ import (
 
 type lastInsertIDErrorResult struct{}
 
-func (r lastInsertIDErrorResult) LastInsertId() (int64, error) {
+func (lastInsertIDErrorResult) LastInsertId() (int64, error) {
 	return 0, utils.ErrTest
 }
 
-func (r lastInsertIDErrorResult) RowsAffected() (int64, error) {
+func (lastInsertIDErrorResult) RowsAffected() (int64, error) {
 	return 1, nil
 }
 
 func TestStore_Create(t *testing.T) {
-	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	if err != nil {
-		t.Errorf("error creating mock db: %s", err)
-		return
+	mockContainer, mock := container.NewMockContainer(t)
+	ctx := &gofr.Context{
+		Context:   t.Context(),
+		Request:   nil,
+		Container: mockContainer,
 	}
-	defer db.Close()
 
-	userStore := New(db)
+	userStore := New()
 	query := "INSERT INTO users (name, email) VALUES ( ?, ?)"
 
 	testcases := []struct {
-
-		description     string
-		input       	*models.User
-		mockExpect 		func()
-		wantID       	int64
-		expectedError   bool
+		description   string
+		input         *models.User
+		mockExpect    func()
+		wantID        int64
+		expectedError bool
 	}{
 		{
-			description:  "success",
-			input:        &models.User{Name: "test", Email: "test@example.com"},
+			description: "success",
+			input:       &models.User{Name: "test", Email: "test@example.com"},
 			mockExpect: func() {
-				mock.ExpectExec(query).
+				mock.SQL.ExpectExec(query).
 					WithArgs("test", "test@example.com").
 					WillReturnResult(sqlmock.NewResult(1, 1))
 			},
-			wantID: 1,
+			wantID:        1,
 			expectedError: false,
 		},
 		{
-			description:  "exec error",
-			input:        &models.User{Name: "fail", Email: "fail@example.com"},
+			description: "exec error",
+			input:       &models.User{Name: "fail", Email: "fail@example.com"},
 			mockExpect: func() {
-				mock.ExpectExec(query).WithArgs("fail", "fail@example.com").WillReturnError(utils.ErrTest)
+				mock.SQL.ExpectExec(query).WithArgs("fail", "fail@example.com").WillReturnError(utils.ErrTest)
 			},
-			wantID: 0,
+			wantID:        0,
 			expectedError: true,
 		},
 		{
-			description:  "last inserted error",
-			input: &models.User{Name: "test", Email: "test@example.com"},
+			description: "last inserted error",
+			input:       &models.User{Name: "test", Email: "test@example.com"},
 			mockExpect: func() {
-				mock.ExpectExec(query).WithArgs("test", "test@example.com").WillReturnResult(lastInsertIDErrorResult{})
+				mock.SQL.ExpectExec(query).WithArgs("test", "test@example.com").WillReturnResult(lastInsertIDErrorResult{})
 			},
-			wantID: 0,
+			wantID:        0,
 			expectedError: true,
 		},
 	}
@@ -72,8 +73,8 @@ func TestStore_Create(t *testing.T) {
 	for _, tc := range testcases {
 		tc.mockExpect()
 
-		id, err2 := userStore.Create(tc.input)
-		if (err2 != nil)  != tc.expectedError {
+		id, err2 := userStore.Create(ctx, tc.input)
+		if (err2 != nil) != tc.expectedError {
 			t.Errorf("expected err: %v, got: %v", tc.expectedError, err2)
 		}
 
@@ -84,41 +85,41 @@ func TestStore_Create(t *testing.T) {
 }
 
 func TestStore_GetByID(t *testing.T) {
-	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	if err != nil {
-		t.Errorf("error creating mock db: %s", err)
-		return
+	mockContainer, mock := container.NewMockContainer(t)
+	ctx := &gofr.Context{
+		Context:   t.Context(),
+		Request:   nil,
+		Container: mockContainer,
 	}
-	defer db.Close()
 
-	userStore := New(db)
+	userStore := New()
 	query := "SELECT id, name, email FROM users WHERE id = ?"
 
 	testcases := []struct {
-		description     string
-		inputID      int64
-		mockExpect func()
-		want         *models.User
-		expectedError      bool
+		description   string
+		inputID       int64
+		mockExpect    func()
+		want          *models.User
+		expectedError bool
 	}{
 		{
-			description:  "success",
-			inputID:      1,
+			description: "success",
+			inputID:     1,
 			mockExpect: func() {
 				rows := sqlmock.NewRows([]string{"id", "name", "email"}).AddRow(1, "test", "test@example.com")
-				mock.ExpectQuery(query).WithArgs(1).WillReturnRows(rows)
+				mock.SQL.ExpectQuery(query).WithArgs(1).WillReturnRows(rows)
 			},
-			want: &models.User{ID: 1, Name: "test", Email: "test"},
+			want:          &models.User{ID: 1, Name: "test", Email: "test"},
 			expectedError: false,
 		},
 		{
-			description:  "scan error",
-			inputID:      1,
+			description: "scan error",
+			inputID:     1,
 			mockExpect: func() {
 				rows2 := sqlmock.NewRows([]string{"id", "name"}).AddRow(1, "test")
-				mock.ExpectQuery(query).WillReturnRows(rows2)
+				mock.SQL.ExpectQuery(query).WillReturnRows(rows2)
 			},
-			want: &models.User{},
+			want:          &models.User{},
 			expectedError: true,
 		},
 	}
@@ -127,8 +128,8 @@ func TestStore_GetByID(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			tc.mockExpect()
 
-			user, err2 := userStore.GetByID(tc.inputID)
-			if (err2 != nil)  != tc.expectedError {
+			user, err2 := userStore.GetByID(ctx, tc.inputID)
+			if (err2 != nil) != tc.expectedError {
 				t.Errorf("expected err: %v, got: %v", tc.expectedError, err2)
 			}
 
