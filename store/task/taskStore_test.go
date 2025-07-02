@@ -44,6 +44,14 @@ func TestStore_Create(t *testing.T) {
 		t.Errorf("expected error, got nil")
 		return
 	}
+
+	// testcase 3 - result err
+	mock.ExpectExec(query).WithArgs("", false, 0).WillReturnResult(sqlmock.NewErrorResult(utils.ErrTest))
+
+	_, err4 := taskStore.Create(&models.Task{Desc: "fail"})
+	if err4 == nil {
+		t.Errorf("expected error, got nil")
+	}
 }
 
 func TestStore_GetAll(t *testing.T) {
