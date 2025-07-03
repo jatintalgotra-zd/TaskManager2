@@ -26,14 +26,14 @@ func main() {
 
 	app.Migrate(migrations.All())
 
-	app.GET("/task", taskHndlr.GetAllHandler)
-	app.GET("/task/{id}", taskHndlr.GetByIDHandler)
-	app.POST("/task", taskHndlr.PostHandler)
-	app.PUT("/task/{id}", taskHndlr.PutHandler)
-	app.DELETE("/task/{id}", taskHndlr.DeleteHandler)
+	app.GET("/task", taskHndlr.GetAll)
+	app.GET("/task/{id}", taskHndlr.GetByID)
+	app.POST("/task", taskHndlr.Post)
+	app.PUT("/task/{id}", taskHndlr.Put)
+	app.DELETE("/task/{id}", taskHndlr.Delete)
 
-	app.GET("/user/{id}", userHndlr.GetByIDHandler)
-	app.POST("/user", userHndlr.PostHandler)
+	app.GET("/user/{id}", userHndlr.GetByID)
+	app.POST("/user", userHndlr.Post)
 
 	app.Run()
 }

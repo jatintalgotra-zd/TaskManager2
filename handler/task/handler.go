@@ -17,7 +17,7 @@ func New(service Service) *handler {
 	return &handler{service: service}
 }
 
-func (h *handler) PostHandler(ctx *gofr.Context) (any, error) {
+func (h *handler) Post(ctx *gofr.Context) (any, error) {
 	var task models.Task
 
 	err := ctx.Bind(&task)
@@ -33,7 +33,7 @@ func (h *handler) PostHandler(ctx *gofr.Context) (any, error) {
 	return id, nil
 }
 
-func (h *handler) GetAllHandler(ctx *gofr.Context) (any, error) {
+func (h *handler) GetAll(ctx *gofr.Context) (any, error) {
 	tasks, err := h.service.GetAll(ctx)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (h *handler) GetAllHandler(ctx *gofr.Context) (any, error) {
 	return tasks, nil
 }
 
-func (h *handler) GetByIDHandler(ctx *gofr.Context) (any, error) {
+func (h *handler) GetByID(ctx *gofr.Context) (any, error) {
 	id, err := strconv.Atoi(ctx.PathParam("id"))
 	if err != nil {
 		return nil, gofrhttp.ErrorInvalidParam{Params: []string{ctx.PathParam("id")}}
@@ -56,7 +56,7 @@ func (h *handler) GetByIDHandler(ctx *gofr.Context) (any, error) {
 	return task, nil
 }
 
-func (h *handler) PutHandler(ctx *gofr.Context) (any, error) {
+func (h *handler) Put(ctx *gofr.Context) (any, error) {
 	var task models.Task
 
 	err := ctx.Bind(&task)
@@ -72,7 +72,7 @@ func (h *handler) PutHandler(ctx *gofr.Context) (any, error) {
 	return nil, nil
 }
 
-func (h *handler) DeleteHandler(ctx *gofr.Context) (any, error) {
+func (h *handler) Delete(ctx *gofr.Context) (any, error) {
 	id, err := strconv.Atoi(ctx.PathParam("id"))
 	if err != nil {
 		return nil, gofrhttp.ErrorInvalidParam{Params: []string{ctx.PathParam("id")}}

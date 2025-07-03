@@ -16,7 +16,7 @@ import (
 	"TaskManager2/utils"
 )
 
-func TestHandler_PostHandler(t *testing.T) {
+func TestHandler_Post(t *testing.T) {
 	controller := gomock.NewController(t)
 	mockSvc := NewMockService(controller)
 	taskHandler := New(mockSvc)
@@ -81,7 +81,7 @@ func TestHandler_PostHandler(t *testing.T) {
 
 			ctx.Request = gofrhttp.NewRequest(req)
 
-			id, err := taskHandler.PostHandler(ctx)
+			id, err := taskHandler.Post(ctx)
 			if err != nil && err.Error() != tc.expectedError.Error() {
 				t.Errorf("error, expected %v, got %v", tc.expectedError, err)
 			}
@@ -93,7 +93,7 @@ func TestHandler_PostHandler(t *testing.T) {
 	}
 }
 
-func TestHandler_GetAllHandlerHandler(t *testing.T) {
+func TestHandler_GetAllHandler(t *testing.T) {
 	controller := gomock.NewController(t)
 	mockSvc := NewMockService(controller)
 	taskHandler := New(mockSvc)
@@ -138,7 +138,7 @@ func TestHandler_GetAllHandlerHandler(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			ctx.Request = gofrhttp.NewRequest(req)
 
-			tasks, err := taskHandler.GetAllHandler(ctx)
+			tasks, err := taskHandler.GetAll(ctx)
 			if err != nil && err.Error() != tc.expectedError.Error() {
 				t.Errorf("error, expected %v, got %v", tc.expectedError, err)
 			}
@@ -157,7 +157,7 @@ func TestHandler_GetAllHandlerHandler(t *testing.T) {
 	}
 }
 
-func TestHandler_GetByIDHandler(t *testing.T) {
+func TestHandler_GetByID(t *testing.T) {
 	controller := gomock.NewController(t)
 	mockSvc := NewMockService(controller)
 	taskHandler := New(mockSvc)
@@ -213,7 +213,7 @@ func TestHandler_GetByIDHandler(t *testing.T) {
 			req = mux.SetURLVars(req, map[string]string{"id": tc.requestID})
 			ctx.Request = gofrhttp.NewRequest(req)
 
-			task, err := taskHandler.GetByIDHandler(ctx)
+			task, err := taskHandler.GetByID(ctx)
 			if err != nil && err.Error() != tc.expectedError.Error() {
 				t.Errorf("error, expected %v, got %v", tc.expectedError, err)
 			}
@@ -232,7 +232,7 @@ func TestHandler_GetByIDHandler(t *testing.T) {
 	}
 }
 
-func TestHandler_PutHandler(t *testing.T) {
+func TestHandler_Put(t *testing.T) {
 	controller := gomock.NewController(t)
 	mockSvc := NewMockService(controller)
 	taskHandler := New(mockSvc)
@@ -295,7 +295,7 @@ func TestHandler_PutHandler(t *testing.T) {
 
 			ctx.Request = gofrhttp.NewRequest(req)
 
-			_, err := taskHandler.PutHandler(ctx)
+			_, err := taskHandler.Put(ctx)
 			if err != nil && err.Error() != tc.expectedError.Error() {
 				t.Errorf("error, expected %v, got %v", tc.expectedError, err)
 			}
@@ -303,7 +303,7 @@ func TestHandler_PutHandler(t *testing.T) {
 	}
 }
 
-func TestHandler_DeleteHandler(t *testing.T) {
+func TestHandler_Delete(t *testing.T) {
 	controller := gomock.NewController(t)
 	mockSvc := NewMockService(controller)
 	taskHandler := New(mockSvc)
@@ -358,7 +358,7 @@ func TestHandler_DeleteHandler(t *testing.T) {
 			req = mux.SetURLVars(req, map[string]string{"id": tc.requestID})
 			ctx.Request = gofrhttp.NewRequest(req)
 
-			_, err := taskHandler.DeleteHandler(ctx)
+			_, err := taskHandler.Delete(ctx)
 			if err != nil && err.Error() != tc.expectedError.Error() {
 				t.Errorf("error, expected %v, got %v", tc.expectedError, err)
 			}
