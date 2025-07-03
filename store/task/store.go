@@ -25,9 +25,9 @@ func (store) Create(ctx *gofr.Context, t *models.Task) (int64, error) {
 		return 0, err
 	}
 
-	id, err2 := res.LastInsertId()
-	if err2 != nil {
-		return 0, err2
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
 	}
 
 	return id, nil
@@ -46,9 +46,9 @@ func (store) GetAll(ctx *gofr.Context) ([]models.Task, error) {
 	for rows.Next() {
 		var t models.Task
 
-		err2 := rows.Scan(&t.ID, &t.Desc, &t.Status, &t.UserID)
-		if err2 != nil {
-			return nil, err2
+		err := rows.Scan(&t.ID, &t.Desc, &t.Status, &t.UserID)
+		if err != nil {
+			return nil, err
 		}
 
 		tasks = append(tasks, t)

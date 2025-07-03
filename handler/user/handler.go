@@ -26,9 +26,9 @@ func (h *handler) PostHandler(ctx *gofr.Context) (any, error) {
 		return nil, gofrhttp.ErrorInvalidParam{}
 	}
 
-	id, err2 := h.service.Create(ctx, &task)
-	if err2 != nil {
-		return nil, err2
+	id, err := h.service.Create(ctx, &task)
+	if err != nil {
+		return nil, err
 	}
 
 	return id, nil
@@ -40,9 +40,9 @@ func (h *handler) GetByIDHandler(ctx *gofr.Context) (any, error) {
 		return nil, gofrhttp.ErrorInvalidParam{Params: []string{ctx.PathParam("id")}}
 	}
 
-	user, err2 := h.service.GetByID(ctx, int64(id))
-	if err2 != nil {
-		return nil, err2
+	user, err := h.service.GetByID(ctx, int64(id))
+	if err != nil {
+		return nil, err
 	}
 
 	return response.Raw{Data: user}, nil

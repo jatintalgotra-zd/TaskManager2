@@ -22,9 +22,9 @@ func (s *service) Create(ctx *gofr.Context, task *models.Task) (int64, error) {
 		return 0, err
 	}
 
-	id, err2 := s.store.Create(ctx, task)
-	if err2 != nil {
-		return 0, err2
+	id, err := s.store.Create(ctx, task)
+	if err != nil {
+		return 0, err
 	}
 
 	return id, nil

@@ -73,9 +73,9 @@ func TestStore_Create(t *testing.T) {
 	for _, tc := range testcases {
 		tc.mockExpect()
 
-		id, err2 := userStore.Create(ctx, tc.input)
-		if (err2 != nil) != tc.expectedError {
-			t.Errorf("expected err: %v, got: %v", tc.expectedError, err2)
+		id, err := userStore.Create(ctx, tc.input)
+		if (err != nil) != tc.expectedError {
+			t.Errorf("expected err: %v, got: %v", tc.expectedError, err)
 		}
 
 		if id != tc.wantID {
@@ -128,9 +128,9 @@ func TestStore_GetByID(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			tc.mockExpect()
 
-			user, err2 := userStore.GetByID(ctx, tc.inputID)
-			if (err2 != nil) != tc.expectedError {
-				t.Errorf("expected err: %v, got: %v", tc.expectedError, err2)
+			user, err := userStore.GetByID(ctx, tc.inputID)
+			if (err != nil) != tc.expectedError {
+				t.Errorf("expected err: %v, got: %v", tc.expectedError, err)
 			}
 
 			if user.ID != tc.want.ID {

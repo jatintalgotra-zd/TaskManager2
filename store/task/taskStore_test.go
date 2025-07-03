@@ -87,10 +87,10 @@ func TestStore_Create(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			tc.mockExpect()
 
-			id, err2 := taskStore.Create(ctx, tc.input)
+			id, err := taskStore.Create(ctx, tc.input)
 
-			if (err2 != nil) != tc.expectedError {
-				t.Errorf("expected err: %v, got: %v", tc.expectedError, err2)
+			if (err != nil) != tc.expectedError {
+				t.Errorf("expected err: %v, got: %v", tc.expectedError, err)
 			}
 
 			if id != tc.wantID {
@@ -162,10 +162,10 @@ func TestStore_GetAll(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			tc.mockExpect()
 
-			tasks, err2 := taskStore.GetAll(ctx)
+			tasks, err := taskStore.GetAll(ctx)
 
-			if (err2 != nil) != tc.expectedError {
-				t.Errorf("expected error = %v, got = %v", tc.expectedError, err2)
+			if (err != nil) != tc.expectedError {
+				t.Errorf("expected error = %v, got = %v", tc.expectedError, err)
 			}
 
 			if len(tasks) != tc.wantLen {
@@ -221,9 +221,9 @@ func TestStore_GetByID(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			tc.mockExpect()
 
-			got, err2 := taskStore.GetByID(ctx, tc.inputID)
-			if (err2 != nil) != tc.expectedError {
-				t.Errorf("expected error = %v, got error = %v", tc.expectedError, err2)
+			got, err := taskStore.GetByID(ctx, tc.inputID)
+			if (err != nil) != tc.expectedError {
+				t.Errorf("expected error = %v, got error = %v", tc.expectedError, err)
 			}
 
 			if !tc.expectedError && got.ID != tc.want.ID {
@@ -296,9 +296,9 @@ func TestStore_Update(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			tc.mockExpect()
 
-			err2 := taskStore.Update(ctx, tc.input)
-			if (err2 != nil) != tc.expectedError {
-				t.Errorf("expected error: %v, got: %v", tc.expectedError, err2)
+			err := taskStore.Update(ctx, tc.input)
+			if (err != nil) != tc.expectedError {
+				t.Errorf("expected error: %v, got: %v", tc.expectedError, err)
 			}
 		})
 	}
@@ -367,9 +367,9 @@ func TestStore_Delete(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			tc.mockExpect()
 
-			err2 := taskStore.Delete(ctx, tc.inputID)
-			if (err2 != nil) != tc.expectedError {
-				t.Errorf("expected error: %v, got: %v", tc.expectedError, err2)
+			err := taskStore.Delete(ctx, tc.inputID)
+			if (err != nil) != tc.expectedError {
+				t.Errorf("expected error: %v, got: %v", tc.expectedError, err)
 			}
 		})
 	}

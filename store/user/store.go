@@ -21,9 +21,9 @@ func (store) Create(ctx *gofr.Context, u *models.User) (int64, error) {
 		return 0, err
 	}
 
-	id, err2 := res.LastInsertId()
-	if err2 != nil {
-		return 0, err2
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
 	}
 
 	return id, nil
