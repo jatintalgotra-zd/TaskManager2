@@ -46,7 +46,7 @@ func (store) GetAll(ctx *gofr.Context) ([]models.Task, error) {
 	for rows.Next() {
 		var t models.Task
 
-		err := rows.Scan(&t.ID, &t.Desc, &t.Status, &t.UserID)
+		err = rows.Scan(&t.ID, &t.Desc, &t.Status, &t.UserID)
 		if err != nil {
 			return nil, err
 		}
