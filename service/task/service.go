@@ -1,6 +1,8 @@
 package task
 
 import (
+	"gofr.dev/pkg/gofr"
+
 	"TaskManager2/models"
 )
 
@@ -13,23 +15,23 @@ func New(store Store, userSvc UserService) *service {
 	return &service{store: store, userService: userSvc}
 }
 
-func (s *service) Create(task *models.Task) (int64, error) {
+func (s *service) Create(ctx *gofr.Context, task *models.Task) (int64, error) {
 	// validate if user exists
-	_, err := s.userService.GetByID(task.UserID)
+	_, err := s.userService.GetByID(ctx, task.UserID)
 	if err != nil {
 		return 0, err
 	}
 
-	id, err2 := s.store.Create(task)
-	if err2 != nil {
-		return 0, err2
+	id, err := s.store.Create(ctx, task)
+	if err != nil {
+		return 0, err
 	}
 
 	return id, nil
 }
 
-func (s *service) GetAll() ([]models.Task, error) {
-	tasks, err := s.store.GetAll()
+func (s *service) GetAll(ctx *gofr.Context) ([]models.Task, error) {
+	tasks, err := s.store.GetAll(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -37,8 +39,8 @@ func (s *service) GetAll() ([]models.Task, error) {
 	return tasks, nil
 }
 
-func (s *service) GetByID(id int64) (*models.Task, error) {
-	task, err := s.store.GetByID(id)
+func (s *service) GetByID(ctx *gofr.Context, id int64) (*models.Task, error) {
+	task, err := s.store.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -46,8 +48,8 @@ func (s *service) GetByID(id int64) (*models.Task, error) {
 	return task, nil
 }
 
-func (s *service) Update(task *models.Task) error {
-	err := s.store.Update(task)
+func (s *service) Update(ctx *gofr.Context, task *models.Task) error {
+	err := s.store.Update(ctx, task)
 	if err != nil {
 		return err
 	}
@@ -55,8 +57,8 @@ func (s *service) Update(task *models.Task) error {
 	return nil
 }
 
-func (s *service) Delete(id int64) error {
-	err := s.store.Delete(id)
+func (s *service) Delete(ctx *gofr.Context, id int64) error {
+	err := s.store.Delete(ctx, id)
 	if err != nil {
 		return err
 	}

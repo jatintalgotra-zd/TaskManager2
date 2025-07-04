@@ -1,10 +1,11 @@
 package user
 
 import (
-	"encoding/json"
-	"io"
-	"net/http"
 	"strconv"
+
+	"gofr.dev/pkg/gofr"
+	gofrhttp "gofr.dev/pkg/gofr/http"
+	"gofr.dev/pkg/gofr/http/response"
 
 	"TaskManager2/models"
 )
@@ -17,71 +18,32 @@ func New(service Service) *handler {
 	return &handler{service: service}
 }
 
-// Post - Create method.
-func (h *handler) Post(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
+func (h *handler) Post(ctx *gofr.Context) (any, error) {
+	var task models.User
 
-	var user models.User
-
-	uBytes, err := io.ReadAll(r.Body)
+	err := ctx.Bind(&task)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, gofrhttp.ErrorInvalidParam{}
 	}
 
-	err = json.Unmarshal(uBytes, &user)
+	id, err := h.service.Create(ctx, &task)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, err
 	}
 
-	id, err2 := h.service.Create(&user)
-	if err2 != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-
-	_, err3 := w.Write([]byte(strconv.Itoa(int(id))))
-	if err3 != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	return id, nil
 }
 
-// GetByID - get by id method.
-func (h *handler) GetByID(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	id := r.PathValue("id")
-
-	idInt, err := strconv.Atoi(id)
+func (h *handler) GetByID(ctx *gofr.Context) (any, error) {
+	id, err := strconv.Atoi(ctx.PathParam("id"))
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, gofrhttp.ErrorInvalidParam{Params: []string{ctx.PathParam("id")}}
 	}
 
-	user, err2 := h.service.GetByID(int64(idInt))
-	if err2 != nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
+	user, err := h.service.GetByID(ctx, int64(id))
+	if err != nil {
+		return nil, err
 	}
 
-	uBytes, err3 := json.Marshal(user)
-	if err3 != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	_, err4 := w.Write(uBytes)
-	if err4 != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	return response.Raw{Data: user}, nil
 }

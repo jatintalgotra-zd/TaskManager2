@@ -1,13 +1,11 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
-	"time"
+	"gofr.dev/pkg/gofr"
 
-	"TaskManager2/datasource/mysql"
 	taskHandler "TaskManager2/handler/task"
 	userHandler "TaskManager2/handler/user"
+	"TaskManager2/migrations"
 	taskService "TaskManager2/service/task"
 	userService "TaskManager2/service/user"
 	taskStore "TaskManager2/store/task"
@@ -15,16 +13,8 @@ import (
 )
 
 func main() {
-	db, err := mysql.New("root", "root123", "test_db")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	defer db.Close()
-
-	taskStr := taskStore.New(db)
-	userStr := userStore.New(db)
+	taskStr := taskStore.New()
+	userStr := userStore.New()
 
 	userSvc := userService.New(userStr)
 	taskSvc := taskService.New(taskStr, userSvc)
@@ -32,23 +22,18 @@ func main() {
 	taskHndlr := taskHandler.New(taskSvc)
 	userHndlr := userHandler.New(userSvc)
 
-	http.HandleFunc("POST /task", taskHndlr.Post)
-	http.HandleFunc("GET /task", taskHndlr.Get)
-	http.HandleFunc("GET /task/{id}", taskHndlr.GetByID)
-	http.HandleFunc("PUT /task", taskHndlr.Put)
-	http.HandleFunc("DELETE /task/{id}", taskHndlr.DeleteByID)
+	app := gofr.New()
 
-	http.HandleFunc("POST /user", userHndlr.Post)
-	http.HandleFunc("GET /user/{id}", userHndlr.GetByID)
+	app.Migrate(migrations.All())
 
-	server := http.Server{
-		Addr:        ":8080",
-		Handler:     http.DefaultServeMux,
-		ReadTimeout: 5 * time.Second,
-	}
+	app.GET("/task", taskHndlr.GetAll)
+	app.GET("/task/{id}", taskHndlr.GetByID)
+	app.POST("/task", taskHndlr.Post)
+	app.PUT("/task/{id}", taskHndlr.Put)
+	app.DELETE("/task/{id}", taskHndlr.Delete)
 
-	err2 := server.ListenAndServe()
-	if err2 != nil {
-		fmt.Println(err)
-	}
+	app.GET("/user/{id}", userHndlr.GetByID)
+	app.POST("/user", userHndlr.Post)
+
+	app.Run()
 }

@@ -5,222 +5,372 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"gofr.dev/pkg/gofr"
+	"gofr.dev/pkg/gofr/container"
 
 	"TaskManager2/models"
 	"TaskManager2/utils"
 )
 
+type lastInsertIDErrorResult struct{}
+
+func (lastInsertIDErrorResult) LastInsertId() (int64, error) {
+	return 0, utils.ErrTest
+}
+
+func (lastInsertIDErrorResult) RowsAffected() (int64, error) {
+	return 1, nil
+}
+
+type rowsAffectedErrorResult struct{}
+
+func (rowsAffectedErrorResult) RowsAffected() (int64, error) {
+	return 0, utils.ErrTest
+}
+
+func (rowsAffectedErrorResult) LastInsertId() (int64, error) {
+	return 1, nil
+}
+
 func TestStore_Create(t *testing.T) {
-	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	if err != nil {
-		t.Errorf("error creating mock db: %s", err)
-		return
+	mockContainer, mock := container.NewMockContainer(t)
+	ctx := &gofr.Context{
+		Context:   t.Context(),
+		Request:   nil,
+		Container: mockContainer,
 	}
 
-	defer db.Close()
-
-	taskStore := New(db)
+	taskStore := New()
 	query := "INSERT INTO tasks (description, status, user_id) VALUES ( ?, ?, ?)"
 
-	// testcase 1 - success
-	mock.ExpectExec(query).WithArgs("", false, 0).WillReturnResult(sqlmock.NewResult(1, 1))
-
-	id, err2 := taskStore.Create(&models.Task{})
-	if err2 != nil {
-		t.Errorf("error creating task: %s", err2)
-		return
+	tests := []struct {
+		description   string
+		input         *models.Task
+		mockExpect    func()
+		wantID        int64
+		expectedError bool
+	}{
+		{
+			description: "success",
+			input:       &models.Task{},
+			mockExpect: func() {
+				mock.SQL.ExpectExec(query).
+					WithArgs("", false, 0).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+			},
+			wantID:        1,
+			expectedError: false,
+		},
+		{
+			description: "exec error",
+			input:       &models.Task{Desc: ""},
+			mockExpect: func() {
+				mock.SQL.ExpectExec(query).
+					WithArgs("", false, 0).
+					WillReturnError(utils.ErrTest)
+			},
+			expectedError: true,
+		},
+		{
+			description: "lastInsertID error",
+			input:       &models.Task{},
+			mockExpect: func() {
+				mock.SQL.ExpectExec(query).
+					WithArgs("", false, 0).
+					WillReturnResult(lastInsertIDErrorResult{})
+			},
+			expectedError: true,
+		},
 	}
 
-	if id != 1 {
-		t.Errorf("want %d, got %d", 1, id)
-		return
-	}
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			tc.mockExpect()
 
-	// testcase 2 - exec error
-	mock.ExpectExec(query).WithArgs("fail", false, 0).WillReturnError(utils.ErrTest)
+			id, err := taskStore.Create(ctx, tc.input)
 
-	_, err3 := taskStore.Create(&models.Task{Desc: "fail"})
-	if err3 == nil {
-		t.Errorf("expected error, got nil")
-		return
-	}
+			if (err != nil) != tc.expectedError {
+				t.Errorf("expected err: %v, got: %v", tc.expectedError, err)
+			}
 
-	// testcase 3 - result err
-	mock.ExpectExec(query).WithArgs("", false, 0).WillReturnResult(sqlmock.NewErrorResult(utils.ErrTest))
-
-	_, err4 := taskStore.Create(&models.Task{Desc: "fail"})
-	if err4 == nil {
-		t.Errorf("expected error, got nil")
+			if id != tc.wantID {
+				t.Errorf("expected id: %d, got: %d", tc.wantID, id)
+			}
+		})
 	}
 }
 
 func TestStore_GetAll(t *testing.T) {
-	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	if err != nil {
-		t.Errorf("error creating mock db: %s", err)
-		return
+	mockContainer, mock := container.NewMockContainer(t)
+	ctx := &gofr.Context{
+		Context:   t.Context(),
+		Request:   nil,
+		Container: mockContainer,
 	}
 
-	defer db.Close()
-	taskStore := New(db)
-
+	taskStore := New()
 	query := "SELECT * FROM tasks"
 
-	// testcase 1 - success
-	rows := sqlmock.NewRows([]string{"id", "desc", "status", "user_id"}).AddRow(1, "test", false, "1")
-
-	mock.ExpectQuery(query).WillReturnRows(rows)
-
-	tasks, err2 := taskStore.GetAll()
-	if err2 != nil {
-		t.Errorf("error getting tasks: %s", err2)
-		return
+	tests := []struct {
+		description   string
+		mockExpect    func()
+		wantLen       int
+		expectedError bool
+	}{
+		{
+			description: "success",
+			mockExpect: func() {
+				rows := sqlmock.NewRows([]string{"id", "desc", "status", "user_id"}).
+					AddRow(1, "test", false, "1")
+				mock.SQL.ExpectQuery(query).WillReturnRows(rows)
+			},
+			wantLen:       1,
+			expectedError: false,
+		},
+		{
+			description: "query error",
+			mockExpect: func() {
+				mock.SQL.ExpectQuery(query).WillReturnError(sql.ErrNoRows)
+			},
+			wantLen:       0,
+			expectedError: true,
+		},
+		{
+			description: "scan error",
+			mockExpect: func() {
+				rows := sqlmock.NewRows([]string{"id", "desc", "status"}).
+					AddRow(1, "test", false)
+				mock.SQL.ExpectQuery(query).WillReturnRows(rows)
+			},
+			wantLen:       0,
+			expectedError: true,
+		},
+		{
+			description: "row error",
+			mockExpect: func() {
+				rows := sqlmock.NewRows([]string{"id", "desc", "status", "user_id"}).
+					AddRow(1, "test", false, "1").
+					RowError(0, utils.ErrTest)
+				mock.SQL.ExpectQuery(query).WillReturnRows(rows)
+			},
+			wantLen:       0,
+			expectedError: true,
+		},
 	}
 
-	if len(tasks) != 1 {
-		t.Errorf("want 1, got %d", len(tasks))
-		return
-	}
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			tc.mockExpect()
 
-	if tasks[0].ID != 1 {
-		t.Errorf("want 1, got %d", tasks[0].ID)
-		return
-	}
+			tasks, err := taskStore.GetAll(ctx)
 
-	// testcase 2 - query error
-	mock.ExpectQuery(query).WillReturnError(sql.ErrNoRows)
+			if (err != nil) != tc.expectedError {
+				t.Errorf("expected error = %v, got = %v", tc.expectedError, err)
+			}
 
-	_, err3 := taskStore.GetAll()
-	if err3 == nil {
-		t.Errorf("expected error, got nil")
-		return
-	}
-
-	// testcase 3 - scan error
-	rows = sqlmock.NewRows([]string{"id", "desc", "status"}).AddRow(1, "test", false)
-
-	mock.ExpectQuery(query).WillReturnRows(rows)
-
-	_, err2 = taskStore.GetAll()
-	if err2 == nil {
-		t.Errorf("expected error, got nil")
-		return
+			if len(tasks) != tc.wantLen {
+				t.Errorf("expected task count = %d, got = %d", tc.wantLen, len(tasks))
+			}
+		})
 	}
 }
 
 func TestStore_GetByID(t *testing.T) {
-	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	if err != nil {
-		t.Errorf("error creating mock db: %s", err)
-		return
+	mockContainer, mock := container.NewMockContainer(t)
+	ctx := &gofr.Context{
+		Context:   t.Context(),
+		Request:   nil,
+		Container: mockContainer,
 	}
-	defer db.Close()
 
-	taskStore := New(db)
+	taskStore := New()
 	query := "SELECT id, description, status, user_id FROM tasks WHERE id = ?"
-	rows := sqlmock.NewRows([]string{"id", "desc", "status", "user_id"}).AddRow(1, "test", false, "1")
 
-	// testcase 1 - success
-
-	mock.ExpectQuery(query).WithArgs(1).WillReturnRows(rows)
-
-	task, err2 := taskStore.GetByID(1)
-	if err2 != nil {
-		t.Errorf("error getting task: %s", err2)
-		return
+	tests := []struct {
+		description   string
+		inputID       int64
+		mockExpect    func()
+		want          *models.Task
+		expectedError bool
+	}{
+		{
+			description: "success",
+			inputID:     1,
+			mockExpect: func() {
+				rows := sqlmock.NewRows([]string{"id", "desc", "status", "user_id"}).
+					AddRow(1, "test", false, "1")
+				mock.SQL.ExpectQuery(query).WithArgs(1).WillReturnRows(rows)
+			},
+			want:          &models.Task{ID: 1},
+			expectedError: false,
+		},
+		{
+			description: "scan error - missing user_id",
+			inputID:     1,
+			mockExpect: func() {
+				rows := sqlmock.NewRows([]string{"id", "desc", "status"}).
+					AddRow(1, "test", false)
+				mock.SQL.ExpectQuery(query).WithArgs(1).WillReturnRows(rows)
+			},
+			want:          nil,
+			expectedError: true,
+		},
 	}
 
-	if task.ID != 1 {
-		t.Errorf("want 1, got %d", task.ID)
-		return
-	}
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			tc.mockExpect()
 
-	// testcase 2 - scan error
-	rows2 := sqlmock.NewRows([]string{"id", "desc", "status"}).AddRow(1, "test", false)
+			got, err := taskStore.GetByID(ctx, tc.inputID)
+			if (err != nil) != tc.expectedError {
+				t.Errorf("expected error = %v, got error = %v", tc.expectedError, err)
+			}
 
-	mock.ExpectQuery(query).WillReturnRows(rows2)
-
-	_, err3 := taskStore.GetByID(1)
-	if err3 == nil {
-		t.Errorf("expected error, got nil")
-		return
+			if !tc.expectedError && got.ID != tc.want.ID {
+				t.Errorf("expected ID = %d, got = %d", tc.want.ID, got.ID)
+			}
+		})
 	}
 }
 
 func TestStore_Update(t *testing.T) {
-	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	if err != nil {
-		t.Errorf("error creating mock db: %s", err)
-		return
+	mockContainer, mock := container.NewMockContainer(t)
+	ctx := &gofr.Context{
+		Context:   t.Context(),
+		Request:   nil,
+		Container: mockContainer,
 	}
-	defer db.Close()
 
-	taskStore := New(db)
+	taskStore := New()
 	query := "UPDATE tasks SET description = ?, status = ? WHERE id = ?"
 
-	// testcase 1 - success
-	mock.ExpectExec(query).WithArgs("test", true, int64(1)).WillReturnResult(sqlmock.NewResult(0, 1))
-
-	err2 := taskStore.Update(&models.Task{ID: 1, Desc: "test", Status: true})
-	if err2 != nil {
-		t.Errorf("error updating task: %s", err2)
-		return
+	tests := []struct {
+		description   string
+		input         *models.Task
+		mockExpect    func()
+		expectedError bool
+	}{
+		{
+			description: "success",
+			input:       &models.Task{ID: 1, Desc: "test", Status: true},
+			mockExpect: func() {
+				mock.SQL.ExpectExec(query).
+					WithArgs("test", true, int64(1)).
+					WillReturnResult(sqlmock.NewResult(0, 1))
+			},
+			expectedError: false,
+		},
+		{
+			description: "no rows affected",
+			input:       &models.Task{ID: 2, Desc: "test", Status: false},
+			mockExpect: func() {
+				mock.SQL.ExpectExec(query).
+					WithArgs("test", false, int64(2)).
+					WillReturnResult(sqlmock.NewResult(0, 0))
+			},
+			expectedError: true,
+		},
+		{
+			description: "exec error",
+			input:       &models.Task{ID: 3, Desc: "fail", Status: false},
+			mockExpect: func() {
+				mock.SQL.ExpectExec(query).
+					WithArgs("fail", false, int64(3)).
+					WillReturnError(utils.ErrTest)
+			},
+			expectedError: true,
+		},
+		{
+			description: "rowsAffected error",
+			input:       &models.Task{ID: 1, Desc: "test", Status: true},
+			mockExpect: func() {
+				mock.SQL.ExpectExec(query).
+					WithArgs("test", true, int64(1)).
+					WillReturnResult(rowsAffectedErrorResult{})
+			},
+			expectedError: true,
+		},
 	}
 
-	// testcase 2 - no rows affected
-	mock.ExpectExec(query).WithArgs("test", false, int64(2)).WillReturnResult(sqlmock.NewResult(0, 0))
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			tc.mockExpect()
 
-	err3 := taskStore.Update(&models.Task{ID: 2, Desc: "test", Status: false})
-	if err3 == nil {
-		t.Errorf("expected error, got nil")
-		return
-	}
-
-	// testcase 3 - exec error
-	mock.ExpectExec(query).WithArgs("fail", false, int64(3)).WillReturnError(utils.ErrTest)
-
-	err4 := taskStore.Update(&models.Task{ID: 3, Desc: "fail", Status: false})
-	if err4 == nil {
-		t.Errorf("expected error, got nil")
-		return
+			err := taskStore.Update(ctx, tc.input)
+			if (err != nil) != tc.expectedError {
+				t.Errorf("expected error: %v, got: %v", tc.expectedError, err)
+			}
+		})
 	}
 }
 
 func TestStore_Delete(t *testing.T) {
-	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	if err != nil {
-		t.Errorf("error creating mock db: %s", err)
-		return
+	mockContainer, mock := container.NewMockContainer(t)
+	ctx := &gofr.Context{
+		Context:   t.Context(),
+		Request:   nil,
+		Container: mockContainer,
 	}
-	defer db.Close()
 
-	taskStore := New(db)
+	taskStore := New()
 	query := "DELETE FROM tasks WHERE id = ?"
 
-	// testcase 1 - success
-	mock.ExpectExec(query).WithArgs(int64(1)).WillReturnResult(sqlmock.NewResult(0, 1))
-
-	err2 := taskStore.Delete(1)
-	if err2 != nil {
-		t.Errorf("error deleting task: %s", err2)
-		return
+	tests := []struct {
+		description   string
+		inputID       int64
+		mockExpect    func()
+		expectedError bool
+	}{
+		{
+			description: "success",
+			inputID:     1,
+			mockExpect: func() {
+				mock.SQL.ExpectExec(query).
+					WithArgs(int64(1)).
+					WillReturnResult(sqlmock.NewResult(0, 1))
+			},
+			expectedError: false,
+		},
+		{
+			description: "no rows affected",
+			inputID:     2,
+			mockExpect: func() {
+				mock.SQL.ExpectExec(query).
+					WithArgs(int64(2)).
+					WillReturnResult(sqlmock.NewResult(0, 0))
+			},
+			expectedError: true,
+		},
+		{
+			description: "exec error",
+			inputID:     3,
+			mockExpect: func() {
+				mock.SQL.ExpectExec(query).
+					WithArgs(int64(3)).
+					WillReturnError(utils.ErrTest)
+			},
+			expectedError: true,
+		},
+		{
+			description: "rowsAffected error",
+			inputID:     1,
+			mockExpect: func() {
+				mock.SQL.ExpectExec(query).
+					WithArgs(int64(1)).
+					WillReturnResult(rowsAffectedErrorResult{})
+			},
+			expectedError: true,
+		},
 	}
 
-	// testcase 2 - no rows affected
-	mock.ExpectExec(query).WithArgs(int64(2)).WillReturnResult(sqlmock.NewResult(0, 0))
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			tc.mockExpect()
 
-	err3 := taskStore.Delete(2)
-	if err3 == nil {
-		t.Errorf("expected error, got nil")
-		return
-	}
-
-	// testcase 3 - exec error
-	mock.ExpectExec(query).WithArgs(int64(3)).WillReturnError(utils.ErrTest)
-
-	err4 := taskStore.Delete(3)
-	if err4 == nil {
-		t.Errorf("expected error, got nil")
-		return
+			err := taskStore.Delete(ctx, tc.inputID)
+			if (err != nil) != tc.expectedError {
+				t.Errorf("expected error: %v, got: %v", tc.expectedError, err)
+			}
+		})
 	}
 }

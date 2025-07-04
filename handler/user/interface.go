@@ -1,8 +1,12 @@
 package user
 
-import "TaskManager2/models"
+import (
+	"gofr.dev/pkg/gofr"
+
+	"TaskManager2/models"
+)
 
 type Service interface {
-	Create(*models.User) (int64, error)
-	GetByID(int64) (*models.User, error)
+	Create(*gofr.Context, *models.User) (int64, error)
+	GetByID(*gofr.Context, int64) (*models.User, error)
 }

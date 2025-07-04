@@ -1,8 +1,9 @@
 package task
 
 import (
-	"database/sql"
 	"errors"
+
+	"gofr.dev/pkg/gofr"
 
 	"TaskManager2/models"
 )
@@ -10,29 +11,32 @@ import (
 var errNotFound = errors.New("task not found")
 
 type store struct {
-	db *sql.DB
 }
 
-func New(db *sql.DB) *store {
-	return &store{db: db}
+func New() *store {
+	return &store{}
 }
 
-func (s *store) Create(t *models.Task) (int64, error) {
-	res, err := s.db.Exec("INSERT INTO tasks (description, status, user_id) VALUES ( ?, ?, ?)", t.Desc, t.Status, t.UserID)
+func (store) Create(ctx *gofr.Context, t *models.Task) (int64, error) {
+	db := ctx.SQL
+
+	res, err := db.Exec("INSERT INTO tasks (description, status, user_id) VALUES ( ?, ?, ?)", t.Desc, t.Status, t.UserID)
 	if err != nil {
 		return 0, err
 	}
 
-	id, err2 := res.LastInsertId()
-	if err2 != nil {
-		return 0, err2
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
 	}
 
 	return id, nil
 }
 
-func (s *store) GetAll() ([]models.Task, error) {
-	rows, err := s.db.Query("SELECT * FROM tasks")
+func (store) GetAll(ctx *gofr.Context) ([]models.Task, error) {
+	db := ctx.SQL
+
+	rows, err := db.Query("SELECT * FROM tasks")
 	if err != nil {
 		return nil, err
 	}
@@ -42,23 +46,24 @@ func (s *store) GetAll() ([]models.Task, error) {
 	for rows.Next() {
 		var t models.Task
 
-		err2 := rows.Scan(&t.ID, &t.Desc, &t.Status, &t.UserID)
-		if err2 != nil {
-			return nil, err2
+		err = rows.Scan(&t.ID, &t.Desc, &t.Status, &t.UserID)
+		if err != nil {
+			return nil, err
 		}
 
 		tasks = append(tasks, t)
 	}
 
 	if rows.Err() != nil {
-		return nil, err
+		return nil, rows.Err()
 	}
 
 	return tasks, nil
 }
 
-func (s *store) GetByID(id int64) (*models.Task, error) {
-	row := s.db.QueryRow("SELECT id, description, status, user_id FROM tasks WHERE id = ?", id)
+func (store) GetByID(ctx *gofr.Context, id int64) (*models.Task, error) {
+	db := ctx.SQL
+	row := db.QueryRow("SELECT id, description, status, user_id FROM tasks WHERE id = ?", id)
 
 	var t models.Task
 
@@ -70,8 +75,10 @@ func (s *store) GetByID(id int64) (*models.Task, error) {
 	return &t, nil
 }
 
-func (s *store) Update(t *models.Task) error {
-	res, err := s.db.Exec("UPDATE tasks SET description = ?, status = ? WHERE id = ?", t.Desc, t.Status, t.ID)
+func (store) Update(ctx *gofr.Context, t *models.Task) error {
+	db := ctx.SQL
+
+	res, err := db.Exec("UPDATE tasks SET description = ?, status = ? WHERE id = ?", t.Desc, t.Status, t.ID)
 	if err != nil {
 		return err
 	}
@@ -88,8 +95,10 @@ func (s *store) Update(t *models.Task) error {
 	return nil
 }
 
-func (s *store) Delete(id int64) error {
-	res, err := s.db.Exec("DELETE FROM tasks WHERE id = ?", id)
+func (store) Delete(ctx *gofr.Context, id int64) error {
+	db := ctx.SQL
+
+	res, err := db.Exec("DELETE FROM tasks WHERE id = ?", id)
 	if err != nil {
 		return err
 	}

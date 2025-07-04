@@ -1,10 +1,10 @@
 package task
 
 import (
-	"encoding/json"
-	"io"
-	"net/http"
 	"strconv"
+
+	"gofr.dev/pkg/gofr"
+	gofrhttp "gofr.dev/pkg/gofr/http"
 
 	"TaskManager2/models"
 )
@@ -17,147 +17,71 @@ func New(service Service) *handler {
 	return &handler{service: service}
 }
 
-// Post - Create method.
-func (h *handler) Post(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
+func (h *handler) Post(ctx *gofr.Context) (any, error) {
 	var task models.Task
 
-	tBytes, err := io.ReadAll(r.Body)
+	err := ctx.Bind(&task)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, gofrhttp.ErrorInvalidParam{}
 	}
 
-	err = json.Unmarshal(tBytes, &task)
+	id, err := h.service.Create(ctx, &task)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, err
 	}
 
-	id, err2 := h.service.Create(&task)
-	if err2 != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-
-	_, err3 := w.Write([]byte(strconv.Itoa(int(id))))
-	if err3 != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+	return id, nil
 }
 
-// Get - get all.
-func (h *handler) Get(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	tasks, err := h.service.GetAll()
+func (h *handler) GetAll(ctx *gofr.Context) (any, error) {
+	tasks, err := h.service.GetAll(ctx)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
-	tBytes, err2 := json.Marshal(tasks)
-	if err2 != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-
-	_, err3 := w.Write(tBytes)
-	if err3 != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	return tasks, nil
 }
 
-// GetByID - get by id method.
-func (h *handler) GetByID(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	id := r.PathValue("id")
-
-	idInt, err := strconv.Atoi(id)
+func (h *handler) GetByID(ctx *gofr.Context) (any, error) {
+	id, err := strconv.Atoi(ctx.PathParam("id"))
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, gofrhttp.ErrorInvalidParam{Params: []string{ctx.PathParam("id")}}
 	}
 
-	task, err2 := h.service.GetByID(int64(idInt))
-	if err2 != nil {
-		w.WriteHeader(http.StatusNotFound)
+	task, err := h.service.GetByID(ctx, int64(id))
+	if err != nil {
+		return nil, err
 	}
 
-	tBytes, err3 := json.Marshal(task)
-	if err3 != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	_, err4 := w.Write(tBytes)
-	if err4 != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	return task, nil
 }
 
-// Put - update method.
-func (h *handler) Put(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
+func (h *handler) Put(ctx *gofr.Context) (any, error) {
 	var task models.Task
 
-	tBytes, err := io.ReadAll(r.Body)
+	err := ctx.Bind(&task)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, gofrhttp.ErrorInvalidParam{}
 	}
 
-	err = json.Unmarshal(tBytes, &task)
+	err = h.service.Update(ctx, &task)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, err
 	}
 
-	err = h.service.Update(&task)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
+	return nil, nil
 }
 
-func (h *handler) DeleteByID(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	id := r.PathValue("id")
-
-	idInt, err := strconv.Atoi(id)
+func (h *handler) Delete(ctx *gofr.Context) (any, error) {
+	id, err := strconv.Atoi(ctx.PathParam("id"))
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, gofrhttp.ErrorInvalidParam{Params: []string{ctx.PathParam("id")}}
 	}
 
-	err = h.service.Delete(int64(idInt))
+	err = h.service.Delete(ctx, int64(id))
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	return nil, nil
 }
