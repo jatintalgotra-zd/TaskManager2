@@ -1,0 +1,20 @@
+image: taskmanager
+containerPort: 8000
+replicaCount: 2
+
+service:
+  port: 8000
+  targetPort: 8000
+  nodePort: 30080
+
+config:
+  APP_NAME: taskmanager
+  HTTP_PORT: "8000"
+
+hpa:
+  minReplicas: 2
+  maxReplicas: 5
+  targetCpuUtilizationPercent: 60
+
+pdb:
+  minAvailable: 1

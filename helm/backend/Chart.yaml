@@ -1,0 +1,6 @@
+apiVersion: v2
+name: taskmanager
+type: application
+description: A Helm Chart for the task manager backend api
+version: 0.0.1
+appVersion: "2.0"
