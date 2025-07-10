@@ -21,39 +21,14 @@ spec:
           envFrom:
             - configMapRef:
                 name: taskmanager-config
+            - configMapRef:
+                name: mysql-config
           env:
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: mysql-secret
                   key: MYSQL_ROOT_PASSWORD
-
-            - name: DB_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: mysql-config
-                  key: DB_HOST
-            - name: DB_USER
-              valueFrom:
-                configMapKeyRef:
-                  name: mysql-config
-                  key: DB_USER
-            - name: DB_NAME
-              valueFrom:
-                configMapKeyRef:
-                  name: mysql-config
-                  key: DB_NAME
-            - name: DB_PORT
-              valueFrom:
-                configMapKeyRef:
-                  name: mysql-config
-                  key: DB_PORT
-            - name: DB_DIALECT
-              valueFrom:
-                configMapKeyRef:
-                  name: mysql-config
-                  key: DB_DIALECT
-
           resources:
             requests:
               cpu: "100m"
