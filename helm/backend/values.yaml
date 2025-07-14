@@ -1,4 +1,4 @@
-image: taskmanager
+image: "taskmanager"
 containerPort: 8000
 replicaCount: 2
 
@@ -8,8 +8,8 @@ service:
   nodePort: 30080
 
 config:
-  APP_NAME: taskmanager
-  HTTP_PORT: "8000"
+  APP_NAME: "taskmanager"
+  HTTP_PORT: 8000
 
 hpa:
   minReplicas: 2
