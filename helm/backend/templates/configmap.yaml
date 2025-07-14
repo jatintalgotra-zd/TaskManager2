@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskmanager-config
+data:
+  APP_NAME: "{{.Values.config.APP_NAME}}"
+  HTTP_PORT: "{{.Values.config.HTTP_PORT}}"
