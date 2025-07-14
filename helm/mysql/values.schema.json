@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "properties": {
+    "image": {
+      "description": "Container Image for mysql",
+      "type": "string",
+      "default": "mysql:8.0"
+    },
+    "containerPort" : {
+      "description" : "Port which container listens to",
+      "type" : "integer",
+      "default": 3306
+    },
+    "replicaCount": {
+      "description": "No of replicas in stateful set",
+      "minimum": 1,
+      "type": "integer",
+      "default": 1
+    },
+    "config": {
+      "description": "Config values for database",
+      "type": "object",
+      "properties": {
+        "DB_PASSWORD": {
+          "description": "Password for root",
+          "type": "string"
+        },
+        "DB_NAME": {
+          "description": "database name",
+          "type": "string"
+        },
+        "DB_PORT": {
+          "description": "database port",
+          "type": "integer",
+          "default": 3306
+        }
+      },
+      "required": ["DB_PASSWORD", "DB_NAME", "DB_PORT"]
+    },
+    "service": {
+      "description": "mysql service port configuration",
+      "type": "object",
+      "properties": {
+        "port": {
+          "description": "service port",
+          "type": "integer",
+          "default": 3306
+        },
+        "targetPort": {
+          "description": "container port in pod",
+          "type": "integer",
+          "default": 3306
+        }
+      },
+      "required": ["port", "targetPort"]
+    }
+  },
+  "required": ["image", "containerPort", "replicaCount", "config", "service"]
+}

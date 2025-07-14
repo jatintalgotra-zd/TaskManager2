@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties":{
+    "image": {
+      "description": "Container image for backend",
+      "type": "string"
+    },
+    "containerPort": {
+      "description": "Port which backend server listens to",
+      "type": "integer",
+      "minimum": 1
+    },
+    "replicaCount": {
+      "description": "No of replicas in deployment",
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
+    "service": {
+      "description": "backend service port configuration",
+      "type": "object",
+      "properties": {
+        "port": {
+          "description": "service port",
+          "type": "integer",
+          "minimum": 1,
+          "default": 8000
+        },
+        "targetPort": {
+          "description": "container port in pod",
+          "type": "integer",
+          "minimum": 1,
+          "default": 8000
+        },
+        "nodePort": {
+          "description": "node port to expose service",
+          "type": "integer",
+          "minimum": 30000,
+          "maximum": 32767
+        }
+      },
+      "required": ["port","targetPort","nodePort"]
+    },
+    "config": {
+      "description": "Config values for backend application",
+      "type": "object",
+      "properties": {
+        "APP_NAME": {
+          "description": "name for backend app",
+          "type": "string",
+          "default": "backend-api"
+        },
+        "HTTP_PORT": {
+          "description": "http port for backend api",
+          "type": "integer",
+          "minimum": 1,
+          "default": 8000
+        }
+      },
+      "required": ["APP_NAME","HTTP_PORT"]
+    },
+    "hpa":{
+      "description": "horizontal pod autoscaling configuration",
+      "type": "object",
+      "properties": {
+        "minReplicas": {
+          "description": "minimum no of replicas to scale down to under no load",
+          "type": "integer",
+          "default": 1
+        },
+        "maxReplicas": {
+          "description": "maximum no of replicas to scale up to under load",
+          "type": "integer",
+          "default": 5
+        },
+        "targetCpuUtilizationPercent": {
+          "description": "average CPU utilization percentage threshold to trigger autoscaling",
+          "type": "integer",
+          "default": 70
+        }
+      },
+      "required": ["minReplicas","maxReplicas","targetCpuUtilizationPercent"]
+    },
+    "pdb": {
+      "description": "pod disruption budget configuration",
+      "type": "object",
+      "properties": {
+        "minAvailable": {
+          "description": "minimum number of pods to keep available",
+          "type": "integer",
+          "default": 1
+        }
+      },
+      "required": ["minAvailable"]
+    }
+  },
+  "required": ["hpa","pdb","image", "containerPort", "replicaCount", "service","config"]
+}
